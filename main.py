@@ -22,7 +22,7 @@ def mouse_controller(controller):
 
 
 if __name__ == "__main__":
-    env = car_racing.CarRacing(save_track=True)
+    env = car_racing.CarRacing(load_track=True)
     env.reset()
     mouse = Controller()
 
