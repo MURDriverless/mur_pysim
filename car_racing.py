@@ -14,6 +14,8 @@ from gym.utils import colorize, seeding, EzPickle
 import pyglet
 from pyglet import gl
 
+from src.observers.track_observer import TrackObserver
+
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
 # fine.
@@ -65,48 +67,6 @@ BORDER_MIN_COUNT = 4
 ROAD_COLOR = [0.4, 0.4, 0.4]
 
 
-class FrictionDetector(contactListener):
-    def __init__(self, env):
-        contactListener.__init__(self)
-        self.env = env
-
-    def BeginContact(self, contact):
-        self._contact(contact, True)
-
-    def EndContact(self, contact):
-        self._contact(contact, False)
-
-    def _contact(self, contact, begin):
-        tile = None
-        obj = None
-        u1 = contact.fixtureA.body.userData
-        u2 = contact.fixtureB.body.userData
-        if u1 and "road_friction" in u1.__dict__:
-            tile = u1
-            obj = u2
-        if u2 and "road_friction" in u2.__dict__:
-            tile = u2
-            obj = u1
-        if not tile:
-            return
-
-        tile.color[0] = ROAD_COLOR[0]
-        tile.color[1] = ROAD_COLOR[1]
-        tile.color[2] = ROAD_COLOR[2]
-        if not obj or "tiles" not in obj.__dict__:
-            return
-        if begin:
-            obj.tiles.add(tile)
-            # print tile.road_friction, "ADD", len(obj.tiles)
-            if not tile.road_visited:
-                tile.road_visited = True
-                self.env.reward += 1000.0 / len(self.env.track)
-                self.env.tile_visited_count += 1
-        else:
-            obj.tiles.remove(tile)
-            # print tile.road_friction, "DEL", len(obj.tiles) -- should delete to zero when on grass (this works)
-
-
 class CarRacing(gym.Env, EzPickle):
     metadata = {
         'render.modes': ['human', 'rgb_array', 'state_pixels'],
@@ -118,7 +78,7 @@ class CarRacing(gym.Env, EzPickle):
         self.save_track = save_track # Added
         self.load_track = load_track if not save_track else False # Added
         self.seed()
-        self.contactListener_keepref = FrictionDetector(self)
+        self.contactListener_keepref = TrackObserver(self)
         self.world = Box2D.b2World((0, 0), contactListener=self.contactListener_keepref)
         self.viewer = None
         self.invisible_state_window = None
