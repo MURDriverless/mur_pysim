@@ -1,5 +1,5 @@
 from Box2D.b2 import contactListener
-from ..world import ROAD_COLOR
+from src.world import ROAD_COLOR
 
 
 """
