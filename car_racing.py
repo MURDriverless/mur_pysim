@@ -15,7 +15,7 @@ import pyglet
 from pyglet import gl
 
 from src.track_observer import TrackObserver
-from src.track_builder import get_track_coordinates
+from src.track_coordinates_builder import get_track_coordinates
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
