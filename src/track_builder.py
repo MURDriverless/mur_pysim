@@ -16,7 +16,7 @@ TRACK_DETAIL_STEP = 21 / SCALE
 TRACK_TURN_RATE = 0.31
 
 
-def create_track(env, load_track=True):
+def get_track_coordinates(env, load_track=True):
     """ Get track coordinates from either loading previous track or create a new one
 
     Parameters

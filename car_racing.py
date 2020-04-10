@@ -15,7 +15,7 @@ import pyglet
 from pyglet import gl
 
 from src.track_observer import TrackObserver
-from src.track_builder import create_track
+from src.track_builder import get_track_coordinates
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
@@ -110,11 +110,11 @@ class CarRacing(gym.Env, EzPickle):
         self.car.destroy()
 
     def _create_track(self):
-        track = create_track(self, load_track=True)
+        track_coordinates = get_track_coordinates(self, load_track=True)
         self.road = []
-        self._create_track_tiles(track)
-        self.track = track
-        return track is not None
+        self._create_track_tiles(track_coordinates)
+        self.track = track_coordinates
+        return track_coordinates is not None
 
     def _create_track_tiles(self, track):
         if not self.load_track:
