@@ -15,6 +15,7 @@ import pyglet
 from pyglet import gl
 
 from src.track_observer import TrackObserver
+from src.track_builder import create_track
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
@@ -109,132 +110,11 @@ class CarRacing(gym.Env, EzPickle):
         self.car.destroy()
 
     def _create_track(self):
-        CHECKPOINTS = 12
-        # Added utility to load the latest track
-
-        if self.load_track:
-            all_tracks = []
-            for file in os.listdir("tracks"):
-                if file.endswith('.txt'):
-                    all_tracks.append(os.path.join("tracks", file))
-
-            all_tracks.sort()
-
-            with open(os.path.join(all_tracks[-1]), 'rb') as f:
-                track = pickle.load(f)
-
-            self.road = []
-            self.start_alpha = 2*math.pi*(-0.5)/CHECKPOINTS
-            self._create_track_tiles(track)
-            self.track = track
-            print(f'Track: {all_tracks[-1]} loaded!')
-
-            return True
-
-        else:
-            # Create checkpoints
-            checkpoints = []
-            for c in range(CHECKPOINTS):
-                alpha = 2 * math.pi * c / CHECKPOINTS + self.np_random.uniform(0, 2 * math.pi * 1 / CHECKPOINTS)
-                rad = self.np_random.uniform(TRACK_RAD / 3, TRACK_RAD)
-                if c == 0:
-                    alpha = 0
-                    rad = 1.5 * TRACK_RAD
-                if c == CHECKPOINTS - 1:
-                    alpha = 2 * math.pi * c / CHECKPOINTS
-                    self.start_alpha = 2 * math.pi * (-0.5) / CHECKPOINTS
-                    rad = 1.5 * TRACK_RAD
-                checkpoints.append((alpha, rad * math.cos(alpha), rad * math.sin(alpha)))
-
-            # print "\n".join(str(h) for h in checkpoints)
-            # self.road_poly = [ (    # uncomment this to see checkpoints
-            #    [ (tx,ty) for a,tx,ty in checkpoints ],
-            #    (0.7,0.7,0.9) ) ]
-            self.road = []
-
-            # Go from one checkpoint to another to create track
-            x, y, beta = 1.5 * TRACK_RAD, 0, 0
-            dest_i = 0
-            laps = 0
-            track = []
-            no_freeze = 2500
-            visited_other_side = False
-
-            while True:
-                alpha = math.atan2(y, x)
-                if visited_other_side and alpha > 0:
-                    laps += 1
-                    visited_other_side = False
-
-                if alpha < 0:
-                    visited_other_side = True
-                    alpha += 2 * math.pi
-
-                while True:  # Find destination from checkpoints
-                    failed = True
-
-                    while True:
-                        dest_alpha, dest_x, dest_y = checkpoints[dest_i % len(checkpoints)]
-                        if alpha <= dest_alpha:
-                            failed = False
-                            break
-
-                        dest_i += 1
-                        if dest_i % len(checkpoints) == 0:
-                            break
-                    if not failed:
-                        break
-
-                    alpha -= 2 * math.pi
-                    continue
-
-                r1x = math.cos(beta)
-                r1y = math.sin(beta)
-                p1x = -r1y
-                p1y = r1x
-                dest_dx = dest_x - x  # vector towards destination
-                dest_dy = dest_y - y
-                proj = r1x * dest_dx + r1y * dest_dy  # destination vector projected on rad
-                while beta - alpha > 1.5 * math.pi:
-                    beta -= 2 * math.pi
-                while beta - alpha < -1.5 * math.pi:
-                    beta += 2 * math.pi
-                prev_beta = beta
-                proj *= SCALE
-                if proj > 0.3:
-                    beta -= min(TRACK_TURN_RATE, abs(0.001 * proj))
-                if proj < -0.3:
-                    beta += min(TRACK_TURN_RATE, abs(0.001 * proj))
-                x += p1x * TRACK_DETAIL_STEP
-                y += p1y * TRACK_DETAIL_STEP
-                track.append((alpha, prev_beta * 0.5 + beta * 0.5, x, y))
-                if laps > 4:
-                    break
-                no_freeze -= 1
-                if no_freeze == 0:
-                    break
-            # print "\n".join([str(t) for t in enumerate(track)])
-
-            self._create_track_tiles(track)
-
-            # Added functionality to save track if desired
-            if self.save_track:
-                if len(os.listdir('tracks')) == 0:
-                    with open(os.path.join('tracks', 'track-0.txt'), 'wb') as file:
-                        pickle.dump(track, file)
-                    print("Track Saved.")
-                else:
-                    dir_items = sorted(os.listdir('tracks'))
-                    print(dir_items)
-                    index = max([int(num) for num in dir_items[-1] if num.isdigit()]) + 1
-
-                    with open(os.path.join('tracks', f'track-{index}.txt'), 'wb') as file:
-                        pickle.dump(track, file)
-
-                    print("Track Saved.")
-            print('hello')
-            self.track = track
-            return True
+        track = create_track(self, load_track=True)
+        self.road = []
+        self._create_track_tiles(track)
+        self.track = track
+        return track is not None
 
     def _create_track_tiles(self, track):
         if not self.load_track:
