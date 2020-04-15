@@ -1,10 +1,10 @@
 from Box2D.b2 import contactListener
-from src.world import ROAD_COLOR
+from .builders.track_tiles_builder import ROAD_COLOR
 
 
 """
 Purpose:
-TrackObserver knows the tile the car is in contact with at any given time,
+TrackPositionObserver knows the tile the car is in contact with at any given time,
 assuming that the car is the ONLY dynamic object in the static world. 
 
 If the current tile is a track tile (meaning the car is along the track):
@@ -15,7 +15,7 @@ Else, if the car is off-track, TrackObserver does nothing.
 """
 
 
-class TrackObserver(contactListener):
+class TrackPositionObserver(contactListener):
 
     def __init__(self, env):
         contactListener.__init__(self)
@@ -74,7 +74,7 @@ class TrackObserver(contactListener):
             # mark it as visited and notify Environment
             if not tile.road_visited:
                 tile.road_visited = True
-                # Since the tile represents the road in world.py, we want to reward
+                # Since the tile represents the road, we want to reward
                 # the car for staying on the track road by notifying self.env:
                 # 1. Add static reward by amount of 1000 / total length of simulation track.
                 #    Note that 1000 is the total frames allowed to finish the game.

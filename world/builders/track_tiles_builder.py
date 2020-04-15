@@ -8,8 +8,8 @@ BORDER_MIN_COUNT = 4
 ROAD_COLOR = [0.4, 0.4, 0.4]
 
 
-def create_track_tiles(env, track_coordinates, load_track=True, verbose=False):
-    """ Create track tiles using the track coordinates previously built
+def build_track_tiles(env, track_coordinates, load_track=True, verbose=False):
+    """ Build track tiles using the track coordinates previously built
 
     Parameters
     ----------

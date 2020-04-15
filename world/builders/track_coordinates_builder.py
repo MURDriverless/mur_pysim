@@ -2,12 +2,6 @@ import math
 import os
 import pickle
 
-# Get absolute path of the tracks directory
-TRACKS_DIR = os.path.abspath(
-    # os.getcwd() will always resolve to the mur_pysim root directory
-    os.path.join(os.getcwd(), 'tracks')
-)
-
 SCALE = 6.0
 TOTAL_CHECKPOINTS = 12
 TRACK_RADIUS = 900 / SCALE
@@ -15,9 +9,15 @@ TRACK_RADIUS = 900 / SCALE
 TRACK_DETAIL_STEP = 21 / SCALE
 TRACK_TURN_RATE = 0.31
 
+# Get absolute path of the tracks directory
+TRACKS_DIR = os.path.abspath(
+    # os.getcwd() will always resolve to the mur_pysim root directory
+    os.path.join(os.getcwd(), 'tracks')
+)
 
-def get_track_coordinates(env, load_track=True):
-    """ Get track coordinates from either loading previous track or create a new one
+
+def build_track_coordinates(env, load_track=True):
+    """ Build track coordinates from either loading previous track or generating a new one
 
     Parameters
     ----------
@@ -121,7 +121,7 @@ def _save_track_coordinates(track_edges):
         # which will be the index of the new track coordinates
         index = max([int(num) for num in dir_items[-1] if num.isdigit()]) + 1
         # Save the new track coordinates with the new index
-        with open(os.path.join('../tracks', f'track-{index}.txt'), 'wb') as file:
+        with open(os.path.join(TRACKS_DIR, f'track-{index}.txt'), 'wb') as file:
             pickle.dump(track_edges, file)
     print("Track Saved.")
 

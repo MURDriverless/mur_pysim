@@ -1,7 +1,5 @@
 import math
-import os
 import numpy as np
-import pickle
 
 import Box2D
 from Box2D.b2 import (fixtureDef, polygonShape)
@@ -14,9 +12,9 @@ from gym.utils import seeding, EzPickle
 import pyglet
 from pyglet import gl
 
-from src.track_observer import TrackObserver
-from src.track_coordinates_builder import get_track_coordinates
-from src.track_tiles_builder import create_track_tiles
+from world.track_position_observer import TrackPositionObserver
+from world.builders.track_coordinates_builder import build_track_coordinates
+from world.builders.track_tiles_builder import build_track_tiles
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
@@ -80,7 +78,7 @@ class CarRacing(gym.Env, EzPickle):
         self.save_track = save_track # Added
         self.load_track = load_track if not save_track else False # Added
         self.seed()
-        self.contactListener_keepref = TrackObserver(self)
+        self.contactListener_keepref = TrackPositionObserver(self)
         self.world = Box2D.b2World((0, 0), contactListener=self.contactListener_keepref)
         self.viewer = None
         self.invisible_state_window = None
@@ -111,8 +109,8 @@ class CarRacing(gym.Env, EzPickle):
         self.car.destroy()
 
     def _create_track(self):
-        track_coordinates = get_track_coordinates(self, load_track=True)
-        track_tiles, track_tiles_poly = create_track_tiles(self, track_coordinates, load_track=True)
+        track_coordinates = build_track_coordinates(self, load_track=True)
+        track_tiles, track_tiles_poly = build_track_tiles(self, track_coordinates, load_track=True)
         self.track = track_coordinates
         self.road = track_tiles
         self.road_poly = track_tiles_poly
