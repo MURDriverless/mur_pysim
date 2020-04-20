@@ -1,42 +1,20 @@
 import car_racing
-from pynput.mouse import Button, Controller
-
-SCREEN_HEIGHT = 2160
-SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2
-SCREEN_WIDTH = 3840
-SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2
-
-
-def mouse_controller(controller):
-    """ Function for converting the mouse position into continuous variable for acceleration and steering """
-    x, y = controller.position
-
-    if SCREEN_HEIGHT_HALF - y <= 0:
-        z_ret = (y - SCREEN_HEIGHT_HALF) / 1000
-        y_ret = 0
-    else:
-        z_ret = 0
-        y_ret = (SCREEN_HEIGHT_HALF - y) / 1000
-
-    return (x - SCREEN_WIDTH_HALF) / 1000, y_ret, z_ret
-
+from utils import track, checkpoints, debugging
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
     env.reset()
-    mouse = Controller()
+    track_xy = track.Coordinates.load()
+    cp = checkpoints.Checkpoint(track_xy)
 
-    total_reward = 0
-    steps = 0
+    steps, total_reward = 0, 0
 
     while True:
         env.render()
-        pos_x, pos_y, pos_z = mouse_controller(mouse)
-        action = (pos_x, pos_y, pos_z)
-
-        observation, reward, done, info = env.step(action)
-
-        total_reward += reward
+        mouse_pos = debugging.MouseController.position()
+        observation, reward, done, info = env.step(mouse_pos)
+        car_pos = (env.car.hull.position[0], env.car.hull.position[1])
+        cp.check(car_pos)
 
         if steps % 200 == 0 or done:
             print(f"Step: {steps} Total Reward: {total_reward}")
