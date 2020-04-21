@@ -4,10 +4,15 @@ import torch.optim as optim
 
 
 class DeepQNetwork(nn.Module):
-    """
-
-    """
     def __init__(self, lr, input_dims, l1_dims, l2_dims, output_dims):
+        """
+
+        :param lr:
+        :param input_dims:
+        :param l1_dims:
+        :param l2_dims:
+        :param output_dims:
+        """
         super(DeepQNetwork, self).__init__()
         self.input_dims = input_dims
         self.l1_dims = l1_dims
