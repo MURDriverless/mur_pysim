@@ -25,8 +25,6 @@ if __name__ == "__main__":
         env.reset()
 
         while not done:
-            if i % 20 == 0:
-                env.render()
             # Choose action
             action = agent.choose_action(observation)
             a = [0, action[1], action[2]]
@@ -34,6 +32,8 @@ if __name__ == "__main__":
                 a[0] = -1
             else:
                 a[0] = 1
+
+            env.render()
 
             # Step environment
             _, r, _, _ = env.step(a)
@@ -54,9 +54,9 @@ if __name__ == "__main__":
             if ob_dist > 5:
                 reward -= 0.01
             else:
-                reward += ob_dist * 0.01 + vel * 0.1
+                reward += ob_dist * 0.1 + vel * 0.1
 
-            if action[1] == 0 or action[2] == 0:
+            if action[1] == 0 and action[2] == 0:
                 reward -= 1
             else:
                 reward += 0.1
@@ -64,10 +64,11 @@ if __name__ == "__main__":
             # done
             if cp_index == cp_last_index:
                 steps_since_cp += 1
+                reward -= 0.001
             else:
-                reward += 100
+                reward += 1000
 
-            if steps_since_cp > 2000:
+            if ob_dist > 10 or steps_since_cp > 200:
                 done = True
 
             score += reward
@@ -87,7 +88,8 @@ if __name__ == "__main__":
               f"Score: {score}\n",
               f"Avg Score: {np.mean(scores[-100:])}\n",
               f"Max Score: {np.max(scores)}\n",
-              f"Epsilon: {agent.epsilon}")
+              f"Epsilon: {agent.epsilon}",
+              f"Checkpoint Reached: {cp.index}")
 
 
 

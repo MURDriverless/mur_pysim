@@ -11,7 +11,7 @@ class Agent:
             - Heavily discretized actions (continuous action space ignored)
     """
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size,
-                 steer_res=3, acc_res=2, br_res=2, max_mem_size=500000, epsilon_end=0.01, epsilon_decay=5e-4):
+                 steer_res=3, acc_res=2, br_res=2, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=5e-4):
         """
 
         :param gamma:
@@ -25,7 +25,7 @@ class Agent:
         """
         self.gamma = gamma
         self.epsilon = epsilon
-        self.epsilon_min = epsilon_end
+        self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.lr = lr
 
