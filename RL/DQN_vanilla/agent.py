@@ -11,7 +11,7 @@ class Agent:
             - Heavily discretized actions (continuous action space ignored)
     """
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size,
-                 steer_res=3, acc_res=2, br_res=2, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=5e-4):
+                 steer_res=2, acc_res=2, br_res=2, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=5e-4):
         """
 
         :param gamma:
@@ -39,7 +39,7 @@ class Agent:
         self.mem_counter = 0
         self.iter_counter = 0
 
-        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=256, l2_dims=256,
+        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=512, l2_dims=512,
                                    steer_dims=len(self.action_space_steer),
                                    acc_dims=len(self.action_space_accelerate),
                                    brake_dims=len(self.action_space_brake))

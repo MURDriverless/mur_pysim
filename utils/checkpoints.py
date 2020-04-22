@@ -7,10 +7,9 @@ import numpy as np
 
 
 class Checkpoint:
-    index = 0
-
     def __init__(self, track_coordinates: dict):
         self.track_coordinates = track_coordinates
+        self.index = 0
 
     def check_dist(self, car_pos_x, car_pos_y, threshold=5) -> int:
         """
@@ -47,8 +46,6 @@ class Checkpoint:
 
         return x_delta, y_delta, theta
 
-
-    @classmethod
-    def reset(cls):
-        cls.index = 0
+    def reset(self):
+        self.index = 0
 

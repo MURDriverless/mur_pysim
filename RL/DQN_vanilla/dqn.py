@@ -14,6 +14,7 @@ class DeepQNetwork(nn.Module):
         :param l2_dims:
         :param output_dims:
         """
+
         super(DeepQNetwork, self).__init__()
         self.input_dims = input_dims
         self.l1_dims = l1_dims

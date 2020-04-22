@@ -2,11 +2,14 @@ import car_racing
 from utils import track, checkpoints
 from RL.DQN_vanilla.agent import Agent
 
+import torch
 import numpy as np
+
+PATH = 'saves/dqn_model.txt'
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
-    agent = Agent(lr=0.10, gamma=0.1, epsilon=0.2, input_dims=[5], batch_size=256)
+    agent = Agent(lr=0.10, gamma=0.1, epsilon=0.15, input_dims=[5], batch_size=256)
     env.reset()
     track_xy = track.Coordinates.load()
     cp = checkpoints.Checkpoint(track_xy)
@@ -17,23 +20,24 @@ if __name__ == "__main__":
         score = 0
         done = False
         reward = 0
+        cp.index = 0
         cp_index = cp.index
         cp_last_index = cp_index
         steps_since_cp = 0
         observation = np.zeros(5, dtype=np.float32)
-        cp.reset()
-        env.reset()
 
         while not done:
+            if i % 20 == 0:
+                env.render()
             # Choose action
             action = agent.choose_action(observation)
             a = [0, action[1], action[2]]
+
             if action[0] < 1:
                 a[0] = -1
             else:
                 a[0] = 1
 
-            env.render()
 
             # Step environment
             _, r, _, _ = env.step(a)
@@ -52,7 +56,7 @@ if __name__ == "__main__":
 
             # reward
             if ob_dist > 5:
-                reward -= 0.01
+                reward -= 0.1
             else:
                 reward += ob_dist * 0.1 + vel * 0.1
 
@@ -61,14 +65,14 @@ if __name__ == "__main__":
             else:
                 reward += 0.1
 
-            # done
             if cp_index == cp_last_index:
                 steps_since_cp += 1
-                reward -= 0.001
+                reward -= 0.01
             else:
                 reward += 1000
 
-            if ob_dist > 10 or steps_since_cp > 200:
+            # done
+            if steps_since_cp > 1000:
                 done = True
 
             score += reward
@@ -83,19 +87,17 @@ if __name__ == "__main__":
             observation = observation_
             cp_last_index = cp_index
 
-        scores.append(score)
+        env.reset()
+        scores.append((i, score, cp.index))
         print(f"Episode: {i + 1}\n",
               f"Score: {score}\n",
               f"Avg Score: {np.mean(scores[-100:])}\n",
-              f"Max Score: {np.max(scores)}\n",
               f"Epsilon: {agent.epsilon}",
               f"Checkpoint Reached: {cp.index}")
 
-
-
-
-
-
+        if i % 100 == 0:
+            with open(PATH, 'w') as file:
+                file.write(str(scores))
 
 
 
