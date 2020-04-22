@@ -6,11 +6,11 @@ import numpy as np
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
-    agent = Agent(lr=0.1, gamma=0.1, epsilon=0.1, input_dims=[4], batch_size=256)
+    agent = Agent(lr=0.10, gamma=0.1, epsilon=0.2, input_dims=[5], batch_size=256)
     env.reset()
     track_xy = track.Coordinates.load()
     cp = checkpoints.Checkpoint(track_xy)
-    num_games = 500
+    num_games = 10000
     scores = []
 
     for i in range(num_games):
@@ -20,16 +20,23 @@ if __name__ == "__main__":
         cp_index = cp.index
         cp_last_index = cp_index
         steps_since_cp = 0
-        observation = np.zeros(4, dtype=np.float32)
+        observation = np.zeros(5, dtype=np.float32)
+        cp.reset()
         env.reset()
 
         while not done:
-            env.render()
+            if i % 20 == 0:
+                env.render()
             # Choose action
             action = agent.choose_action(observation)
+            a = [0, action[1], action[2]]
+            if action[0] < 1:
+                a[0] = -1
+            else:
+                a[0] = 1
 
             # Step environment
-            _, r, _, _ = env.step(action)
+            _, r, _, _ = env.step(a)
 
             # Calculate observation_, reward, done
             # observation_
@@ -37,22 +44,30 @@ if __name__ == "__main__":
             car_y = env.car.hull.position[1]
             ob_dist = cp.check_dist(car_x, car_y)
             ob_x, ob_y, ob_theta = cp.check_xytheta_dist(car_x, car_y)
-            observation_ = np.array([ob_x, ob_y, ob_dist, ob_theta], dtype=np.float32)
+            vel_x = env.car.hull.linearVelocity[0]
+            vel_y = env.car.hull.linearVelocity[1]
+            vel = np.sqrt(vel_x ** 2 + vel_y ** 2)
+
+            observation_ = np.array([ob_x, ob_y, ob_dist, ob_theta, vel], dtype=np.float32)
 
             # reward
             if ob_dist > 5:
                 reward -= 0.01
             else:
-                reward += ob_dist * 0.001
+                reward += ob_dist * 0.01 + vel * 0.1
 
-            if action[1] > 5:
+            if action[1] == 0 or action[2] == 0:
                 reward -= 1
+            else:
+                reward += 0.1
 
             # done
             if cp_index == cp_last_index:
                 steps_since_cp += 1
+            else:
+                reward += 100
 
-            if steps_since_cp > 250:
+            if steps_since_cp > 2000:
                 done = True
 
             score += reward
@@ -67,9 +82,11 @@ if __name__ == "__main__":
             observation = observation_
             cp_last_index = cp_index
 
+        scores.append(score)
         print(f"Episode: {i + 1}\n",
               f"Score: {score}\n",
               f"Avg Score: {np.mean(scores[-100:])}\n",
+              f"Max Score: {np.max(scores)}\n",
               f"Epsilon: {agent.epsilon}")
 
 

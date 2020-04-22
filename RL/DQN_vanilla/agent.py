@@ -11,7 +11,7 @@ class Agent:
             - Heavily discretized actions (continuous action space ignored)
     """
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size,
-                 steer_res=3, acc_res=2, br_res=2, max_mem_size=250000, epsilon_end=0.05, epsilon_decay=2e-4):
+                 steer_res=3, acc_res=2, br_res=2, max_mem_size=500000, epsilon_end=0.01, epsilon_decay=5e-4):
         """
 
         :param gamma:
@@ -32,9 +32,6 @@ class Agent:
         self.action_space_steer = [i for i in range(steer_res)]
         self.action_space_accelerate = [i for i in range(acc_res)]
         self.action_space_brake = [i for i in range(br_res)]
-        self.action_space_len = sum([len(self.action_space_steer),
-                                     len(self.action_space_accelerate),
-                                     len(self.action_space_brake)])
 
         self.mem_size = max_mem_size
         self.batch_size = batch_size
