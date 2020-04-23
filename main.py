@@ -5,11 +5,11 @@ from RL.DQN_vanilla.agent import Agent
 import torch
 import numpy as np
 
-PATH = 'saves/dqn_model.txt'
+PATH = 'saves/dqn_model2.txt'
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
-    agent = Agent(lr=0.10, gamma=0.1, epsilon=0.15, input_dims=[5], batch_size=256)
+    agent = Agent(lr=0.12, gamma=0.15, epsilon=0.20, input_dims=[5], batch_size=256)
     env.reset()
     track_xy = track.Coordinates.load()
     cp = checkpoints.Checkpoint(track_xy)
@@ -27,8 +27,7 @@ if __name__ == "__main__":
         observation = np.zeros(5, dtype=np.float32)
 
         while not done:
-            if i % 20 == 0:
-                env.render()
+            env.render()
             # Choose action
             action = agent.choose_action(observation)
             a = [0, action[1], action[2]]
@@ -55,19 +54,11 @@ if __name__ == "__main__":
             observation_ = np.array([ob_x, ob_y, ob_dist, ob_theta, vel], dtype=np.float32)
 
             # reward
-            if ob_dist > 5:
-                reward -= 0.1
-            else:
+            if ob_dist < 5:
                 reward += ob_dist * 0.1 + vel * 0.1
-
-            if action[1] == 0 and action[2] == 0:
-                reward -= 1
-            else:
-                reward += 0.1
 
             if cp_index == cp_last_index:
                 steps_since_cp += 1
-                reward -= 0.01
             else:
                 reward += 1000
 
@@ -92,7 +83,6 @@ if __name__ == "__main__":
         print(f"Episode: {i + 1}\n",
               f"Score: {score}\n",
               f"Avg Score: {np.mean(scores[-100:])}\n",
-              f"Epsilon: {agent.epsilon}",
               f"Checkpoint Reached: {cp.index}")
 
         if i % 100 == 0:
