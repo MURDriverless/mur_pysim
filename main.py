@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 reward += 1000
 
             # done
-            if steps_since_cp > 250:
+            if steps_since_cp > 250 or ob_dist > 50:
                 done = True
 
             score += reward
