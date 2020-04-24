@@ -28,6 +28,7 @@ class Checkpoint:
 
         if dist < threshold:
             self.index += 1
+            self.index = self.index % 279
 
         return dist
 
