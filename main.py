@@ -9,7 +9,7 @@ PATH = 'saves/dqn_model2.txt'
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
-    agent = Agent(lr=0.12, gamma=0.15, epsilon=0.20, input_dims=[5], batch_size=256)
+    agent = Agent(lr=0.01, gamma=0.08, epsilon=0.2, input_dims=[5], batch_size=512)
     env.reset()
     track_xy = track.Coordinates.load()
     cp = checkpoints.Checkpoint(track_xy)
@@ -34,9 +34,10 @@ if __name__ == "__main__":
 
             if action[0] < 1:
                 a[0] = -1
-            else:
+            elif action[0] > 1:
                 a[0] = 1
-
+            else:
+                action[0] = 0
 
             # Step environment
             _, r, _, _ = env.step(a)
@@ -55,7 +56,12 @@ if __name__ == "__main__":
 
             # reward
             if ob_dist < 5:
-                reward += ob_dist * 0.1 + vel * 0.1
+                reward += (5 - ob_dist) * 0.1 + vel * 0.1
+
+            if vel < 0.01:
+                reward -= 0.1
+            elif vel > 0.5:
+                reward += vel
 
             if cp_index == cp_last_index:
                 steps_since_cp += 1
@@ -83,6 +89,7 @@ if __name__ == "__main__":
         print(f"Episode: {i + 1}\n",
               f"Score: {score}\n",
               f"Avg Score: {np.mean(scores[-100:])}\n",
+              f"Epsilon: {agent.epsilon}\n",
               f"Checkpoint Reached: {cp.index}")
 
         if i % 100 == 0:

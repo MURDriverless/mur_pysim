@@ -11,7 +11,7 @@ class Agent:
             - Heavily discretized actions (continuous action space ignored)
     """
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size,
-                 steer_res=3, acc_res=5, br_res=4, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=5e-4):
+                 steer_res=3, acc_res=10, br_res=2, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=1e-5):
         """
 
         :param gamma:
@@ -30,7 +30,7 @@ class Agent:
         self.lr = lr
 
         self.action_space_steer = [i for i in range(steer_res)]
-        self.action_space_accelerate = [i for i in range(acc_res)]
+        self.action_space_accelerate = [i for i in range(1, acc_res)]
         self.action_space_brake = [i for i in range(br_res)]
 
         self.mem_size = max_mem_size
@@ -39,7 +39,7 @@ class Agent:
         self.mem_counter = 0
         self.iter_counter = 0
 
-        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=512, l2_dims=512,
+        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=128, l2_dims=256, l3_dims=512,
                                    steer_dims=len(self.action_space_steer),
                                    acc_dims=len(self.action_space_accelerate),
                                    brake_dims=len(self.action_space_brake))
@@ -71,6 +71,8 @@ class Agent:
         self.new_state_memory[index] = n_state
         self.terminal_memory[index] = terminal
 
+        self.mem_counter += 1
+
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
@@ -81,10 +83,10 @@ class Agent:
 
         else:
             action_steer = np.random.choice(self.action_space_steer)
-            action_acc = np.random.choice(self.action_space_steer)
+            action_acc = np.random.choice(self.action_space_accelerate[1:])
             action_brake = np.random.choice(self.action_space_brake)
 
-        action = np.array([action_steer, action_acc, action_brake], dtype=np.float32)
+        action = np.array([action_steer, action_acc, action_brake], dtype=np.int)
         return action
 
     def learn(self):
@@ -123,9 +125,9 @@ class Agent:
         loss_acc = self.Q_eval.loss(q_target_acc, q_eval_acc).to(self.Q_eval.device)
         loss_brake = self.Q_eval.loss(q_target_brake, q_eval_brake).to(self.Q_eval.device)
 
-        loss_steer.backward()
+        loss_brake.backward(retain_graph=True)
+        loss_steer.backward(retain_graph=True)
         loss_acc.backward()
-        loss_brake.backward()
 
         self.Q_eval.optimizer.step()
 
