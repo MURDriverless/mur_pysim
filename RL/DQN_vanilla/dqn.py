@@ -5,7 +5,7 @@ import torch.optim as optim
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, input_dims, l1_dims, l2_dims, l3_dims, steer_dims, acc_dims, brake_dims):
+    def __init__(self, lr, input_dims, l1_dims, l2_dims, l3_dims, steer_dims, acc_dims):
         """
 
         :param lr:
@@ -22,14 +22,12 @@ class DeepQNetwork(nn.Module):
         self.l3_dims = l3_dims
         self.steer_dims = steer_dims
         self.acc_dims = acc_dims
-        self.brake_dims = brake_dims
 
         self.l1 = nn.Linear(*input_dims, self.l1_dims)
         self.l2 = nn.Linear(self.l1_dims, self.l2_dims)
         self.l3 = nn.Linear(self.l2_dims, self.l3_dims)
         self.l4_steer = nn.Linear(self.l3_dims, self.steer_dims)
         self.l4_acc = nn.Linear(self.l3_dims, self.acc_dims)
-        self.l4_brake = nn.Linear(self.l3_dims, self.brake_dims)
 
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
@@ -42,8 +40,7 @@ class DeepQNetwork(nn.Module):
         x = F.relu(self.l3(x))
         action_steer = self.l4_steer(x)
         action_acc = self.l4_acc(x)
-        action_brake = self.l4_brake(x)
 
-        return action_steer, action_acc, action_brake
+        return action_steer, action_acc
 
 

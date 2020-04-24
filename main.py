@@ -30,7 +30,7 @@ if __name__ == "__main__":
             env.render()
             # Choose action
             action = agent.choose_action(observation)
-            a = [0, action[1], action[2]]
+            a = [0, action[1], 0]
 
             if action[0] < 1:
                 a[0] = -1
@@ -57,11 +57,6 @@ if __name__ == "__main__":
             # reward
             if ob_dist < 5:
                 reward += (5 - ob_dist) * 0.1 + vel * 0.1
-
-            if vel < 0.01:
-                reward -= 0.1
-            elif vel > 0.5:
-                reward += vel
 
             if cp_index == cp_last_index:
                 steps_since_cp += 1
