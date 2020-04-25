@@ -1,6 +1,5 @@
 from Box2D.b2 import contactListener
-from .builders.track_tiles_builder import ROAD_COLOR
-
+from world.parameters import ROAD_SENSOR_COLOUR
 
 """
 Purpose:
@@ -27,6 +26,13 @@ class TrackPositionObserver(contactListener):
     def EndContact(self, contact):
         self._contact(contact, False)
 
+    @staticmethod
+    def _get_user_data(body):
+        if body and "data" in body.__dict__:
+            return body.data.userData
+        else:
+            return body.userData
+
     def _contact(self, contact, begin):
         # The original code lists the variables as "tile" and "obj".
         # "tile" refers to the road tile in the track.
@@ -37,27 +43,30 @@ class TrackPositionObserver(contactListener):
         # When contact happens, it is assumed that only two bodies are involved.
         # By convention, these are called A and B (as per Java's Box2D docs).
         # Here, we are accessing the properties of two bodies which are in contact.
-        bodyA = contact.fixtureA.body.userData
-        bodyB = contact.fixtureB.body.userData
+        bodyA = contact.fixtureA.body
+        bodyB = contact.fixtureB.body
+
+        dataA = self._get_user_data(bodyA)
+        dataB = self._get_user_data(bodyB)
 
         # Check if one of the bodies is a "road_friction" type.
         # If bodyA is one, set tile as bodyA and car as the other body.
-        if bodyA and "road_friction" in bodyA.__dict__:
-            tile = bodyA
-            car = bodyB
-        if bodyB and "road_friction" in bodyB.__dict__:
-            tile = bodyB
-            car = bodyA
+        if dataA and "road_friction" in dataA.__dict__:
+            tile = dataA
+            car = dataB
+        if dataB and "road_friction" in dataB.__dict__:
+            tile = dataB
+            car = dataA
 
         # If none of the bodies is a "road_friction" type, then the car
         # is off-track, so we do not need perform further operations, return.
-        if not tile:
+        if car is not None and not tile:
             return
 
         # Update the colour properties of the road
-        tile.color[0] = ROAD_COLOR[0]
-        tile.color[1] = ROAD_COLOR[1]
-        tile.color[2] = ROAD_COLOR[2]
+        tile.color[0] = ROAD_SENSOR_COLOUR[0]
+        tile.color[1] = ROAD_SENSOR_COLOUR[1]
+        tile.color[2] = ROAD_SENSOR_COLOUR[2]
 
         # Assertion check: if car is None (null) or it does not have the "tiles"
         # property (a car is programmed to remember the tiles visited), return.
@@ -79,7 +88,7 @@ class TrackPositionObserver(contactListener):
                 # 1. Add static reward by amount of 1000 / total length of simulation track.
                 #    Note that 1000 is the total frames allowed to finish the game.
                 # 2. Increase the number of visited tiles by 1
-                self.env.reward += 1000.0 / len(self.env.track)
+                self.env.reward += 1000.0 / len(self.env.road_sensors)
                 self.env.tile_visited_count += 1
         # If the car has ended contact (begin = False), meaning it has arrived
         # at the new tile, remove the current tile the car is on, as we will
