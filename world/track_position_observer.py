@@ -63,11 +63,6 @@ class TrackPositionObserver(contactListener):
         if car is not None and not tile:
             return
 
-        # Update the colour properties of the road
-        tile.color[0] = ROAD_SENSOR_COLOUR[0]
-        tile.color[1] = ROAD_SENSOR_COLOUR[1]
-        tile.color[2] = ROAD_SENSOR_COLOUR[2]
-
         # Assertion check: if car is None (null) or it does not have the "tiles"
         # property (a car is programmed to remember the tiles visited), return.
         if not car or "tiles" not in car.__dict__:
