@@ -8,7 +8,7 @@ WINDOW_H = 800
 SCALE = 6.0  # Track scale
 TRACK_RADIUS = 900 / SCALE  # Track is heavily morphed circle with this radius
 PLAYFIELD = 2000 / SCALE  # Game over boundary
-FPS = 50  # Frames per second
+FPS = 70  # Frames per second
 ZOOM = 0.8 # Camera zoom
 ZOOM_FOLLOW = False # Set to False for fixed view (don't use zoom)
 
@@ -18,6 +18,8 @@ TRACK_WIDTH = 40 / SCALE
 BORDER = 8 / SCALE
 BORDER_MIN_COUNT = 4
 TOTAL_CHECKPOINTS = 12
+CONE_RADIUS = 2.0
 
 GROUND_COLOUR = (0.4, 0.8, 0.4)
 TRACK_TILE_COLOUR = (0.4, 0.4, 0.4)
+CONE_COLOUR = (255, 0, 0)

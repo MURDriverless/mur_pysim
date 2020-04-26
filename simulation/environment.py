@@ -16,6 +16,7 @@ from simulation.contact_listener import ContactListener
 from simulation.track_coordinates_builder import TrackCoordinatesBuilder
 from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
+from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
 
 
@@ -35,7 +36,7 @@ class Environment(gym.Env, EzPickle):
         self.world = b2World((0, 0), contactListener=self.contact_listener)
         self.ground = None
         self.track_tiles = []
-        # self.cones = []
+        self.cones = []
         self.tile_visited_count = 0
 
         # PyGLet variables
@@ -107,12 +108,14 @@ class Environment(gym.Env, EzPickle):
         track_tiles_coordinates = TrackCoordinatesBuilder.load_track(self)
         self.track_tiles = [TrackTile(self.world, track_tiles_coordinates[i], track_tiles_coordinates[i - 1])
                             for i, element in enumerate(track_tiles_coordinates)]
-        # cones_coordinates = []
-        # for i in range(0, len(road_sensor_coordinates)):
-        #     sensor_vertices = road_sensor_coordinates[i].vertices
-        #     for j in range(0, len(sensor_vertices)):
-        #         cones_coordinates.append(sensor_vertices[j])
-        # self.cones = []
+        # Build cones
+        cones_coordinates = []
+        for i in range(0, len(self.track_tiles)):
+            sensor_vertices = self.track_tiles[i].b2Data.fixtures[0].shape.vertices
+            for j in range(0, len(sensor_vertices)):
+                cones_coordinates.append(sensor_vertices[j])
+        self.cones = [Cone(world=self.world, position=(cone_coordinate[0], cone_coordinate[1]))
+                      for cone_coordinate in cones_coordinates]
 
         init_angle = 0
         init_x, init_y = self.track_tiles[0].position
@@ -198,5 +201,8 @@ class Environment(gym.Env, EzPickle):
 
         for tile in self.track_tiles:
             tile.render()
+
+        for cone in self.cones:
+            cone.render()
 
         gl.glEnd()
