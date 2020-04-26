@@ -9,7 +9,7 @@ PATH = 'saves/dqn_model2.txt'
 
 if __name__ == "__main__":
     env = car_racing.CarRacing(load_track=True)
-    agent = Agent(lr=0.01, gamma=0.08, epsilon=0.1, input_dims=[5], batch_size=512)
+    agent = Agent(lr=0.001, gamma=0.08, epsilon=0.1, input_dims=[5], batch_size=128)
     env.reset()
     track_xy = track.Coordinates.load()
     cp = checkpoints.Checkpoint(track_xy)
@@ -17,6 +17,8 @@ if __name__ == "__main__":
     scores = []
 
     for i in range(num_games):
+        if i % 20 == 0:
+            env.render()
         score = 0
         done = False
         reward = 0
@@ -27,7 +29,6 @@ if __name__ == "__main__":
         observation = np.zeros(5, dtype=np.float32)
 
         while not done:
-            env.render()
             # Choose action
             action = agent.choose_action(observation)
             a = [0, action[1], 0]
@@ -66,7 +67,7 @@ if __name__ == "__main__":
                 reward += 1000
 
             # done
-            if steps_since_cp > 250 or ob_dist > 50:
+            if steps_since_cp > 200:
                 done = True
 
             score += reward

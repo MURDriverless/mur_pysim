@@ -5,7 +5,7 @@ import torch.optim as optim
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, input_dims, l1_dims, l2_dims, l3_dims, steer_dims, acc_dims):
+    def __init__(self, lr, input_dims, l1_dims, l2_dims, steer_dims, acc_dims):
         """
 
         :param lr:
@@ -19,15 +19,13 @@ class DeepQNetwork(nn.Module):
         self.input_dims = input_dims
         self.l1_dims = l1_dims
         self.l2_dims = l2_dims
-        self.l3_dims = l3_dims
         self.steer_dims = steer_dims
         self.acc_dims = acc_dims
 
         self.l1 = nn.Linear(*input_dims, self.l1_dims)
         self.l2 = nn.Linear(self.l1_dims, self.l2_dims)
-        self.l3 = nn.Linear(self.l2_dims, self.l3_dims)
-        self.l4_steer = nn.Linear(self.l3_dims, self.steer_dims)
-        self.l4_acc = nn.Linear(self.l3_dims, self.acc_dims)
+        self.l3_steer = nn.Linear(self.l2_dims, self.steer_dims)
+        self.l3_acc = nn.Linear(self.l2_dims, self.acc_dims)
 
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
@@ -37,9 +35,8 @@ class DeepQNetwork(nn.Module):
     def forward(self, observation):
         x = F.relu(self.l1(observation))
         x = F.relu(self.l2(x))
-        x = F.relu(self.l3(x))
-        action_steer = self.l4_steer(x)
-        action_acc = self.l4_acc(x)
+        action_steer = self.l3_steer(x)
+        action_acc = self.l3_acc(x)
 
         return action_steer, action_acc
 

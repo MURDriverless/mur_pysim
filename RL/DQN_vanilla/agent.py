@@ -1,6 +1,5 @@
 import torch as T
 import numpy as np
-
 from .dqn import DeepQNetwork
 
 
@@ -11,7 +10,7 @@ class Agent:
             - Heavily discretized actions (continuous action space ignored)
     """
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size,
-                 steer_res=3, acc_res=4, max_mem_size=500000, epsilon_min=0.01, epsilon_decay=1e-5):
+                 steer_res=3, acc_res=3, max_mem_size=10000, epsilon_min=0.01, epsilon_decay=2e-5):
         """
 
         :param gamma:
@@ -38,7 +37,7 @@ class Agent:
         self.mem_counter = 0
         self.iter_counter = 0
 
-        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=128, l2_dims=256, l3_dims=512,
+        self.Q_eval = DeepQNetwork(lr, input_dims=input_dims, l1_dims=128, l2_dims=128,
                                    steer_dims=len(self.action_space_steer),
                                    acc_dims=len(self.action_space_accelerate))
 
@@ -108,15 +107,14 @@ class Agent:
 
         q_next_steer, q_next_acc = self.Q_eval.forward(new_state_batch)
         q_next_steer[terminal_batch], q_next_acc[terminal_batch] = 0.0, 0.0
-
-        q_target_steer = reward_batch + self.gamma * T.max(q_next_steer, dim=1)[0]
-        q_target_acc = reward_batch + self.gamma * T.max(q_next_acc, dim=1)[0]
+        q_target_steer = reward_batch + self.gamma * T.max(q_next_steer, 1)[0]
+        q_target_acc = reward_batch + self.gamma * T.max(q_next_acc, 1)[0]
 
         loss_steer = self.Q_eval.loss(q_target_steer, q_eval_steer).to(self.Q_eval.device)
         loss_acc = self.Q_eval.loss(q_target_acc, q_eval_acc).to(self.Q_eval.device)
 
-        loss_steer.backward(retain_graph=True)
-        loss_acc.backward()
+        loss_acc.backward(retain_graph=True)
+        loss_steer.backward()
 
         self.Q_eval.optimizer.step()
 
