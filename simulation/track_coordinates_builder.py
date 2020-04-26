@@ -1,10 +1,9 @@
 import math
 import os
-import pickle
-from world.parameters import SCALE, TRACK_RADIUS, TRACK_DETAIL_STEP, TRACK_TURN_RATE, TOTAL_CHECKPOINTS
+from simulation.parameters import SCALE, TRACK_RADIUS, TRACK_DETAIL_STEP, TRACK_TURN_RATE, TOTAL_CHECKPOINTS
 
 
-class TrackBuilder:
+class TrackCoordinatesBuilder:
     tracks_directory = os.path.join(os.getcwd(), "tracks")
 
     @classmethod

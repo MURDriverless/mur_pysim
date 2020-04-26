@@ -1,5 +1,5 @@
-from world.environment import Environment
 import numpy as np
+from simulation.environment import Environment
 
 
 if __name__ == "__main__":
