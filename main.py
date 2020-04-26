@@ -41,7 +41,8 @@ if __name__ == "__main__":
             s, r, done, info = env.step(a)
             total_reward += r
             if steps % 200 == 0 or done:
-                print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+                print(s)
+                print("action " + str(["{:+0.2f}".format(x) for x in a]))
                 print("step {} total_reward {:+0.2f}".format(steps, total_reward))
             steps += 1
             isopen = env.render()

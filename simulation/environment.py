@@ -18,6 +18,7 @@ from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
+from simulation.utils.state_transformer import StateTransformer
 
 
 class Environment(gym.Env, EzPickle):
@@ -35,6 +36,7 @@ class Environment(gym.Env, EzPickle):
         self.contact_listener = ContactListener(self)
         self.world = b2World((0, 0), contactListener=self.contact_listener)
         self.ground = None
+        self.track_tiles_coordinates = None    # For easy access in StateTransformer
         self.track_tiles = []
         self.cones = []
         self.tile_visited_count = 0
@@ -92,7 +94,10 @@ class Environment(gym.Env, EzPickle):
         if self.tile_visited_count == len(self.track_tiles):
             done = True
 
-        return self.state, step_reward, done, {}
+        next_state = StateTransformer.transform(self)
+        optimal_path = self.track_tiles_coordinates
+
+        return next_state, step_reward, done, {'optimal_path': optimal_path}
 
     def reset(self):
         self._destroy()
@@ -105,9 +110,9 @@ class Environment(gym.Env, EzPickle):
         self.ground = Ground(self.world, PLAYFIELD, PLAYFIELD)
 
         # Build track tiles
-        track_tiles_coordinates = TrackCoordinatesBuilder.load_track(self)
-        self.track_tiles = [TrackTile(self.world, track_tiles_coordinates[i], track_tiles_coordinates[i - 1])
-                            for i, element in enumerate(track_tiles_coordinates)]
+        self.track_tiles_coordinates = TrackCoordinatesBuilder.load_track(self)
+        self.track_tiles = [TrackTile(self.world, self.track_tiles_coordinates[i], self.track_tiles_coordinates[i - 1])
+                            for i, element in enumerate(self.track_tiles_coordinates)]
         # Build cones
         cones_coordinates = []
         for i in range(0, len(self.track_tiles)):
