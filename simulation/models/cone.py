@@ -1,6 +1,7 @@
 from Box2D import *
 from pyglet import gl
 from simulation.parameters import CONE_RADIUS, CONE_COLOUR
+from simulation.constants import CONE_TYPE
 
 
 class Cone:
@@ -9,7 +10,7 @@ class Cone:
         vertices = self._get_vertices(position, CONE_RADIUS)
 
         # 1. Define body
-        bodyDef = b2BodyDef(position=position)   # Don't pass position into bodyDef(), otherwise contact won't trigger
+        bodyDef = b2BodyDef()   # Don't pass position into bodyDef(), otherwise contact won't trigger
 
         # 2. Instantiate body in world
         instance = world.CreateStaticBody(defn=bodyDef)
@@ -26,6 +27,8 @@ class Cone:
         # 6. Finally, point userData of "instance" to the current instance of TrackTile
         instance.userData = self
 
+        self.type = CONE_TYPE
+        self.position = position
         self.b2Data = instance
         self.colour = CONE_COLOUR
 
