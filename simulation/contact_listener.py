@@ -1,4 +1,5 @@
 from Box2D import b2ContactListener
+from simulation.constants import CONE_TYPE, TRACK_TILE_TYPE
 
 
 class ContactListener(b2ContactListener):
@@ -13,50 +14,57 @@ class ContactListener(b2ContactListener):
         self._contact(contact, False)
 
     def _contact(self, contact, begin):
-        # Declare variables we want to define
-        track_tile = None
         car = None
+        cone = None
+        track_tile = None
 
-        # When contact happens, it is assumed that only two bodies are involved.
         bodyA = contact.fixtureA.body
         bodyB = contact.fixtureB.body
 
-        # Check if one of the bodies is a "road_friction" type.
-        # If bodyA is one, set track_tile as bodyA and car as the other body.
-        if bodyA.userData and "road_friction" in bodyA.userData.__dict__:
-            track_tile = bodyA
-            car = bodyB
-        if bodyB.userData and "road_friction" in bodyB.userData.__dict__:
-            track_tile = bodyB
-            car = bodyA
-
-        # If none of the bodies is a "road_friction" type, then the car
-        # is off-track, so we do not need perform further operations, return.
-        if car is not None and not track_tile:
-            return
+        # Since track_tile and cone are static bodies, they will never collide in Box2D's rules.
+        if bodyA.userData and "type" in bodyA.userData.__dict__:
+            if bodyA.userData.type is TRACK_TILE_TYPE:
+                track_tile = bodyA
+                car = bodyB
+                cone = None
+            elif bodyA.userData.type is CONE_TYPE:
+                cone = bodyA
+                car = bodyB
+                track_tile = None
+        if bodyB.userData and "type" in bodyB.userData.__dict__:
+            if bodyB.userData.type is TRACK_TILE_TYPE:
+                track_tile = bodyB
+                car = bodyA
+                cone = None
+            elif bodyB.userData.type is CONE_TYPE:
+                cone = bodyB
+                car = bodyA
+                track_tile = None
 
         # Assertion check: if car is None (null), return.
         if not car:
             return
 
-        # If "begin" is True, happens when the contact starts, we perform the
-        # aforementioned operations
         if begin:
-            # If the tile has not been visited previously,
-            # mark it as visited and notify Environment
-            if not track_tile.userData.road_visited:
-                track_tile.userData.road_visited = True
-                # Since the tile represents the road, we want to reward
-                # the car for staying on the track road by notifying self.env:
-                # 1. Add static reward by amount of 1000 / total length of simulation track.
+            # If car has contacted a track tile, which means it's on-track, give reward.
+            # The caveat is that the reward is only given if the car has not visited the tile
+            # Otherwise, the agent may maximise reward by staying on the tile to avoid penalties
+            if track_tile is not None and track_tile.userData.tile_visited:
+                # 1. Mark tile as visited
+                track_tile.userData.tile_visited = True
+                # 2. Add static reward by amount of 1000 / total length of simulation track.
                 #    Note that 1000 is the total frames allowed to finish the game.
-                # 2. Increase the number of visited tiles by 1
                 self.env.reward += 1000.0 / len(self.env.track_tiles)
+                # 3. Increase the number of visited tiles by 1
                 self.env.tile_visited_count += 1
-        # # If the car has ended contact (begin = False), meaning it has arrived
-        # # at the new tile, remove the current tile the car is on, as we will
-        # # perform the update operation again at the next iteration
-        # else:
-        #     pass
-        #     # car.tiles.remove(track_tile)
-        #     # print tile.road_friction, "DEL", len(obj.tiles) -- should delete to zero when on grass (this works)
+
+            # If car has contacted a cone, we need to penalise it and terminate the simulation
+            # early as we have failed
+            if cone is not None:
+                # Provide penalty relative to the total distance travelled:
+                # The more tiles the car has visited, the lower the penalty will be
+                penalty = 1000 * (1 - float(self.env.tile_visited_count / len(self.env.track_tiles)))
+                # 1. Penalise agent
+                self.env.reward -= penalty
+                # 2. Terminate early as you are a failure
+                self.env.done = True

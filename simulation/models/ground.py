@@ -1,6 +1,7 @@
 from Box2D import *
 from pyglet import gl
 from simulation.parameters import GROUND_COLOUR
+from simulation.constants import GROUND_TYPE
 
 
 class Ground:
@@ -26,6 +27,7 @@ class Ground:
         # 6. Finally, point userData of "instance" to the current instance of TrackTile
         instance.userData = self
 
+        self.type = GROUND_TYPE
         self.b2Data = instance
         self.colour = GROUND_COLOUR
 

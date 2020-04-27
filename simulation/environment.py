@@ -51,6 +51,7 @@ class Environment(gym.Env, EzPickle):
         # RL-related variables
         # action_space has the following structure (steer, gas, brake). -1, +1 is for left and right steering
         self.state = None
+        self.done = False
         self.action_space = spaces.Box(np.array([-1, 0, 0]), np.array([+1, +1, +1]), dtype=np.float32)
         self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8)
         self.reward = 0.0
@@ -73,39 +74,37 @@ class Environment(gym.Env, EzPickle):
         # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
         car.fuel_spent = 0.0
 
-        # Get state from updates
-        self.state = self.render("state_pixels")
-
         # Calculate step reward
         step_reward = 0
-        done = False
-        # Firstly penalise if car is out of bounds
-        x, y = car.hull.position
-        if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
-            done = True
-            step_reward -= 100
         # Penalty for stopping and wasting time
         self.reward -= 0.1
+        self.prev_reward = self.reward
         # Compute step reward and update previous reward
         step_reward += self.reward - self.prev_reward  # Current recorded reward minus previous reward
-        self.prev_reward = self.reward
 
         # Check if done
         if self.tile_visited_count == len(self.track_tiles):
-            done = True
+            self.done = True
 
-        next_state = StateTransformer.transform(self)
-        optimal_path = self.track_tiles_coordinates
+        # Penalise further and terminate if car is out of bounds
+        x, y = car.hull.position
+        if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+            self.done = True
+            step_reward -= 100
 
-        return next_state, step_reward, done, {'optimal_path': optimal_path}
+        self.state = StateTransformer.transform(self)
+
+        return self.state, step_reward, self.done, {}
 
     def reset(self):
         self._destroy()
+        self.time = -1.0
+        self.tile_visited_count = 0
+        self.state = None
+        self.done = False
         self.reward = 0.0
         self.prev_reward = 0.0
-        self.tile_visited_count = 0
-        self.time = -1.0
-
+        
         # Build ground
         self.ground = Ground(self.world, PLAYFIELD, PLAYFIELD)
 
@@ -193,7 +192,7 @@ class Environment(gym.Env, EzPickle):
     def _destroy(self):
         if not self.track_tiles:
             return
-        self.world.DestroyBody(self.ground)
+        self.world.DestroyBody(self.ground.b2Data)
         for track_tile in self.track_tiles:
             self.world.DestroyBody(track_tile.b2Data)
         self.track_tiles = []

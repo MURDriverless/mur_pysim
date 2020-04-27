@@ -2,6 +2,7 @@ import math
 from Box2D import *
 from pyglet import gl
 from simulation.parameters import TRACK_WIDTH, TRACK_TILE_COLOUR
+from simulation.constants import TRACK_TILE_TYPE
 
 
 class TrackTile:
@@ -28,11 +29,12 @@ class TrackTile:
         # 6. Finally, point userData of "instance" to the current instance of TrackTile
         instance.userData = self
 
+        self.type = TRACK_TILE_TYPE
         self.position = position
         self.b2Data = instance
         self.colour = TRACK_TILE_COLOUR
-        self.road_visited = False
-        self.road_friction = 1.0
+        self.tile_visited = False
+        self.tile_friction = 1.0
 
     def render(self):
         vertices = self.b2Data.fixtures[0].shape.vertices
