@@ -2,7 +2,6 @@ import numpy as np
 
 import gym
 from gym import spaces
-from gym.envs.box2d.car_dynamics import Car
 from gym.utils import seeding, EzPickle
 from gym.envs.classic_control import rendering
 
@@ -19,6 +18,7 @@ from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
 from simulation.utils.state_transformer import StateTransformer
+from simulation.dynamics.car_dynamics import Car
 
 
 class Environment(gym.Env, EzPickle):
