@@ -58,6 +58,9 @@ class Environment(gym.Env, EzPickle):
         self.prev_reward = 0.0
 
     def step(self, action):
+        # Track previous reward before it gets updated
+        self.prev_reward = self.reward
+
         car = self.car
         world = self.world
 
@@ -78,7 +81,6 @@ class Environment(gym.Env, EzPickle):
         step_reward = 0
         # Penalty for stopping and wasting time
         self.reward -= 0.1
-        self.prev_reward = self.reward
         # Compute step reward and update previous reward
         step_reward += self.reward - self.prev_reward  # Current recorded reward minus previous reward
 
