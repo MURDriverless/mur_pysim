@@ -49,7 +49,7 @@ class ContactListener(b2ContactListener):
             # If car has contacted a track tile, which means it's on-track, give reward.
             # The caveat is that the reward is only given if the car has not visited the tile
             # Otherwise, the agent may maximise reward by staying on the tile to avoid penalties
-            if track_tile is not None and track_tile.userData.tile_visited:
+            if track_tile is not None and track_tile.userData.tile_visited is False:
                 # 1. Mark tile as visited
                 track_tile.userData.tile_visited = True
                 # 2. Add static reward by amount of 1000 / total length of simulation track.
