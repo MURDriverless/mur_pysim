@@ -7,7 +7,6 @@ Created by Oleg Klimov. Licensed on the same terms as the rest of OpenAI Gym.
 
 import numpy as np
 import math
-import Box2D
 from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef, contactListener, shape)
 
 SIZE = 0.02
