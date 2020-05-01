@@ -22,7 +22,7 @@ CAR_WIDTH = WHEELPOS[1][0] - WHEELPOS[0][0]
 # MPC Parameters
 NUM_STATE_VARS = 4
 NUM_OUTPUTS = 2
-TIME_HORIZON = 50 # steps
+TIME_HORIZON = 5 # steps
 
 MAX_DSTEER = np.radians(30)
 

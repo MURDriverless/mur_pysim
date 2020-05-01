@@ -39,13 +39,12 @@ import numpy as np
 class Controller:
     def __init__(self, initial_x, initial_y, traj, FPS, verbose=False):
         self.dt = np.float32(1 / FPS)
-        self.init_states = np.array([initial_x, initial_y, 2, 0])
+        self.init_states = np.array([initial_x, initial_y, 0, 0])
         self.traj = traj
-        self.ref_steer = 0
         self.sub_ref_states, self.sub_ref_inputs, self.target_idx = \
             self._calc_ref_trajectory(self.init_states, 0, 1, 0)
-        self.verbose = verbose
         self.state = np.zeros([NUM_STATE_VARS])
+        self.verbose = verbose
 
     def update(self, state, a, delta):
         state[0] = state[0] + state[3] * np.cos(state[2]) * self.dt
@@ -57,6 +56,22 @@ class Controller:
 
     def iterate(self, curr_state):
         pass
+
+
+    def _predict(self, curr_state, o_inputs):
+        predicted_state = np.zeros([len(self.sub_ref_states), TIME_HORIZON + 1])
+        for i, x in enumerate(curr_state):
+            predicted_state[i][0] = x
+
+        for acc_i, sa_i, i in zip(o_inputs[0], o_inputs[1], range(1, TIME_HORIZON + 1)):
+            state = self.update(curr_state, acc_i, sa_i)
+            predicted_state[0, i] = state[0]
+            predicted_state[1, i] = state[1]
+            predicted_state[2, i] = state[2]
+            predicted_state[3, i] = state[3]
+
+        print(predicted_state)
+        return predicted_state
 
     def _compute(self):
         """
@@ -71,15 +86,15 @@ class Controller:
         cost = 0.0
         constraints = []
 
-        for t in self.time_horizon:
+        for t in range(TIME_HORIZON):
             cost += cp.quad_form(inputs[:, t], I_COST)
 
             if t != 0:
-                cost += cp.quad_form(self.plan[:, t] - states[:, t], S_COST) # Dont know what this means
+                cost += cp.quad_form(self.traj[:, t] - states[:, t], S_COST) # Dont know what this means
 
             A_dt, B_dt, C_dt = self._model_matrix(self.sub_ref_states[2, t],
                                                   self.sub_ref_states[3, t],
-                                                  self.ref_steer[0, t])
+                                                  self.sub_ref_inputs[0, t])
 
             constraints += [states[:, t + 1] == A_dt * states[:, t] +
                                                 B_dt * inputs[:, t] +
@@ -100,8 +115,8 @@ class Controller:
             constraints += [cp.abs(inputs[1, :]) <= 0.4] # abs(steering) <= 0.4 rads
 
             prob = cp.Problem(cp.Minimize(cost), constraints)
-            prob.solve(solver=cp.ECOS, verbose=self.verbose)
-            
+            prob.solve(solver=cp.ECOS, verbose=self.verbose, parallel=True)
+
             # if optimal or optimal_inaccurate get values from states
             if prob.status == cp.OPTIMAL or prob.status == cp.OPTIMAL_INACCURATE:
                 o_states = np.array([
