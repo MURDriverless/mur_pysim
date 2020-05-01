@@ -1,5 +1,8 @@
 import numpy as np
 
+TARGET_SPEED = 5
+N_IDX_SEARCH = 10
+
 WHEELPOS = [
     (-55, +80), (+55, +80),
     (-55, -82), (+55, -82)
