@@ -66,6 +66,7 @@ class Environment(gym.Env, EzPickle):
             car.steer(-action[0])
             car.gas(action[1])
             car.brake(action[2])
+
         car.step(1.0 / FPS)
         world.Step(1.0 / FPS, 6 * 30, 2 * 30)
         # Update elapsed time

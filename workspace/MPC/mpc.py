@@ -41,12 +41,13 @@ class Controller:
         self.dt = np.float32(1 / FPS)
         self.init_states = np.array([initial_x, initial_y, 0, 0])
         self.traj = traj
-        self.sub_ref_states, self.sub_ref_inputs, self.target_idx = \
-            self._calc_ref_trajectory(self.init_states, 0, 1, 0)
         self.state = np.zeros([NUM_STATE_VARS])
+        self.steps = 0
+        self.index = 0
         self.verbose = verbose
+        self.o_inputs = np.zeros(2, dtype=np.float32)
 
-    def update(self, state, a, delta):
+    def _update(self, state, a, delta):
         state[0] = state[0] + state[3] * np.cos(state[2]) * self.dt
         state[1] = state[1] + state[3] * np.cos(state[2]) * self.dt
         state[2] = state[2] + state[3] / CAR_LENGTH * np.tan(delta) * self.dt
@@ -55,25 +56,35 @@ class Controller:
         return state
 
     def iterate(self, curr_state):
-        pass
+        if self.steps == 0:
+            ref_states, ref_inputs = \
+                self._calc_ref_trajectory(self.init_states)
+            predict_states = self._predict(self.init_states)
+            o_inputs, o_states = self._compute(ref_states, predict_states)
+            self.steps += 1
+        else:
+            ref_states, ref_inputs = \
+                self._calc_ref_trajectory(curr_state)
+            predict_states = self._predict(curr_state)
+            o_inputs, o_states = self._compute(ref_states, predict_states)
 
+        return o_inputs
 
-    def _predict(self, curr_state, o_inputs):
-        predicted_state = np.zeros([len(self.sub_ref_states), TIME_HORIZON + 1])
+    def _predict(self, curr_state):
+        predicted_state = np.zeros([NUM_STATE_VARS, TIME_HORIZON + 1])
         for i, x in enumerate(curr_state):
             predicted_state[i][0] = x
 
-        for acc_i, sa_i, i in zip(o_inputs[0], o_inputs[1], range(1, TIME_HORIZON + 1)):
-            state = self.update(curr_state, acc_i, sa_i)
+        for acc_i, sa_i, i in zip(self.o_inputs[0], self.o_inputs[1], range(1, TIME_HORIZON + 1)):
+            state = self._update(curr_state, acc_i, sa_i)
             predicted_state[0, i] = state[0]
             predicted_state[1, i] = state[1]
             predicted_state[2, i] = state[2]
             predicted_state[3, i] = state[3]
 
-        print(predicted_state)
         return predicted_state
 
-    def _compute(self):
+    def _compute(self, ref_states, predict_states):
         """
         MPC to compute state and input values for TIME_HORIZON
 
@@ -92,9 +103,9 @@ class Controller:
             if t != 0:
                 cost += cp.quad_form(self.traj[:, t] - states[:, t], S_COST) # Dont know what this means
 
-            A_dt, B_dt, C_dt = self._model_matrix(self.sub_ref_states[2, t],
-                                                  self.sub_ref_states[3, t],
-                                                  self.sub_ref_inputs[0, t])
+            A_dt, B_dt, C_dt = self._model_matrix(predict_states[2, t],
+                                                  predict_states[3, t],
+                                                  predict_states[0, t])
 
             constraints += [states[:, t + 1] == A_dt * states[:, t] +
                                                 B_dt * inputs[:, t] +
@@ -107,7 +118,7 @@ class Controller:
                 constraints += [cp.abs(inputs[1, t + 1] - inputs[1, t]) <= MAX_DSTEER * self.dt]
 
             # Penalise deviation from intended directory
-            cost += cp.quad_form(self.sub_ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
+            cost += cp.quad_form(ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
 
             constraints += [states[:, 0] == self.init_states]
             constraints += [states[2, :] >= 0]
@@ -133,6 +144,7 @@ class Controller:
                 o_states = np.zeros(4)
                 o_inputs = np.zeros(2)
 
+            self.o_inputs = o_inputs
         return o_inputs, o_states
 
     def _model_matrix(self, v, phi, delta):
@@ -154,7 +166,7 @@ class Controller:
 
         return A_dt, B_dt, C_dt
 
-    def _calc_ref_trajectory(self, curr_state, curr_idx, curr_step, target_idx):
+    def _calc_ref_trajectory(self, curr_state):
         # Given the current state, this function determines the predicted states within the time horizon
         ref_state = np.zeros((NUM_STATE_VARS, TIME_HORIZON + 1))
         ref_input = np.zeros((1, TIME_HORIZON + 1))
@@ -163,21 +175,17 @@ class Controller:
 
         # set initial ref_state values
         dist_travelled = 0.0
-
-        if target_idx >= curr_idx:
-            curr_idx = target_idx
-        else:
-            curr_idx, _ = self._calc_nearest_idx(curr_state, target_idx)
+        self._calc_nearest_idx(curr_state)
 
         for i in range(TIME_HORIZON + 1):
             dist_travelled += curr_state[2] * self.dt
-            dist_idx = int(dist_travelled / curr_step)
+            dist_idx = int(dist_travelled / self.steps)
 
-            if (curr_idx + dist_idx) < course_len:
-                ref_state[0, i] = self.traj[0][curr_idx + dist_idx]
-                ref_state[1, i] = self.traj[1][curr_idx + dist_idx]
-                ref_state[2, i] = speed_profile[curr_idx + dist_idx]
-                ref_state[3, i] = self.traj[2][curr_idx + dist_idx]
+            if (self.index + dist_idx) < course_len:
+                ref_state[0, i] = self.traj[0][self.index + dist_idx]
+                ref_state[1, i] = self.traj[1][self.index + dist_idx]
+                ref_state[2, i] = speed_profile[self.index + dist_idx]
+                ref_state[3, i] = self.traj[2][self.index + dist_idx]
                 ref_input[0, i] = 0
             else:
                 ref_state[0, i] = self.traj[0][course_len - 1]
@@ -186,19 +194,17 @@ class Controller:
                 ref_state[3, i] = self.traj[2][course_len - 1]
                 ref_input[0, i] = 0
 
-        return ref_state, ref_input, curr_idx
+        return ref_state, ref_input
 
-    def _calc_nearest_idx(self, curr_state, target_idx):
-        dx = [curr_state[0] - i_traj for i_traj in self.traj[0][target_idx:(target_idx + N_IDX_SEARCH)]]
-        dy = [curr_state[1] - i_traj for i_traj in self.traj[1][target_idx:(target_idx + N_IDX_SEARCH)]]
+    def _calc_nearest_idx(self, curr_state):
+        dx = [curr_state[0] - i_traj for i_traj in self.traj[0][self.index:(self.index + N_IDX_SEARCH)]]
+        dy = [curr_state[1] - i_traj for i_traj in self.traj[1][self.index:(self.index + N_IDX_SEARCH)]]
 
         dist = [i_dx ** 2 + i_dx ** 2 for i_dx, i_dy in zip(dx, dy)]
         dist_min = min(dist)
 
-        target = dist.index(dist_min) + target_idx
-        dist_min = np.sqrt(dist_min)
-
-        return target, dist_min
+        nearest_idx = dist.index(dist_min)
+        self.index = nearest_idx
 
 
 
