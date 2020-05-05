@@ -12,7 +12,7 @@ from Box2D.b2 import (edgeShape, circleShape, fixtureDef, polygonShape, revolute
 SIZE = 0.02
 ENGINE_POWER = 100000000*SIZE*SIZE
 WHEEL_MOMENT_OF_INERTIA = 4000*SIZE*SIZE
-FRICTION_LIMIT = 1000000*SIZE*SIZE     # friction ~= mass ~= size^2 (calculated implicitly using density)
+FRICTION_LIMIT = 100000000*SIZE*SIZE     # friction ~= mass ~= size^2 (calculated implicitly using density)
 WHEEL_R = 27
 WHEEL_W = 14
 WHEELPOS = [

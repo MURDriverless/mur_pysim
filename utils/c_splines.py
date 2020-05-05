@@ -211,9 +211,8 @@ def get():
         rx.append(ix)
         ry.append(iy)
         ryaw.append(sp.calc_yaw(i_s))
-        rk.append(sp.calc_curvature(i_s))
 
-    return np.array([rx, ry, ryaw, rk])
+    return np.array([rx, ry, ryaw])
 
 if __name__ == "__main__":
     get()
