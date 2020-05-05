@@ -61,6 +61,7 @@ class Car:
             )
         self.hull.color = (0.8, 0.0, 0.0)
         self.wheels = []
+        self.velocity = 0
         self.fuel_spent = 0.0
         WHEEL_POLY = [
             (-WHEEL_W, +WHEEL_R), (+WHEEL_W, +WHEEL_R),
@@ -114,7 +115,8 @@ class Car:
         gas = np.clip(gas, 0, 1)
         for w in self.wheels[2:4]:
             diff = gas - w.gas
-            if diff > 0.1: diff = 0.1  # gradually increase, but stop immediately
+            if diff > 0.1:
+                diff = 0.1  # gradually increase, but stop immediately
             w.gas += diff
 
     def brake(self, b):
@@ -151,6 +153,7 @@ class Car:
             v = w.linearVelocity
             vf = forw[0]*v[0] + forw[1]*v[1]  # forward speed
             vs = side[0]*v[0] + side[1]*v[1]  # side speed
+            self.velocity = vf # added
 
             # WHEEL_MOMENT_OF_INERTIA*np.square(w.omega)/2 = E -- energy
             # WHEEL_MOMENT_OF_INERTIA*w.omega * domega/dt = dE/dt = W -- power

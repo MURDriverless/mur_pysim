@@ -32,7 +32,9 @@ INITIAL CONDITIONS
 ------------------------------------------
 """
 from .parameters import *
-from ...simulation.parameters import FPS
+import sys
+sys.path.append("../..")
+from simulation.parameters import FPS
 
 import cvxpy as cp
 import numpy as np
@@ -56,23 +58,37 @@ class Controller:
         self.i_states = i_states
         self.c_splines = c_splines
         self.state = np.zeros([NUM_STATE_VARS])
-        self.steps = 0
+        self.steps = 1
         self.index = 0
         self.verbose = verbose
-        self.o_inputs = np.zeros(2, dtype=np.float32)
+        self.o_inputs = np.zeros((2, TIME_HORIZON), dtype=np.float32)
+        self.o_input = np.zeros(2, dtype=np.float32)
 
-    def iterate(self, curr_state):
-        if self.steps == 0:
+    def iterate(self, curr_state, delta):
+        if self.steps == 1:
             ref_states, ref_inputs = self._calc_ref_traj(self.i_states)
             predict_states = self._predict(self.i_states)
             o_inputs, o_states = self._compute(ref_states, ref_inputs, predict_states)
-        else:
+            self.steps += 1
+            return o_inputs[:, 0]
+
+        elif self.steps % TIME_HORIZON == 0:
+            curr_state[3] = self._calc_yaw(curr_state, delta)
             ref_states, ref_inputs = self._calc_ref_traj(curr_state)
             predict_states = self._predict(curr_state)
             o_inputs, o_states = self._compute(ref_states, ref_inputs, predict_states)
+            self.steps += 1
+            return o_inputs[:, 0]
 
-        self.steps += 1
-        return o_inputs
+        else:
+            temp_idx = self.steps % 5
+            self.o_input = self.o_inputs[:, temp_idx]
+            self.steps += 1
+            return self.o_input
+
+    @staticmethod
+    def _calc_yaw(curr_state, delta):
+        return (curr_state[2] * np.tan(delta)) / CAR_LENGTH
 
     def _calc_ref_traj(self, curr_state):
         ref_state = np.zeros((NUM_STATE_VARS, TIME_HORIZON + 1))
@@ -85,19 +101,19 @@ class Controller:
 
         for t in range(TIME_HORIZON + 1):
             dist_travelled += curr_state[2] * DT
-            dist_idx = int(round(dist_travelled / self.steps))
+            dist_idx = np.round(dist_travelled / self.steps).astype(int)
 
             if (self.index + dist_idx) < course_len:
-                ref_state[0, t] = self.c_splines[0][self.index + dist_idx]  # x
-                ref_state[1, t] = self.c_splines[1][self.index + dist_idx]  # y
-                ref_state[2, t] = speed_profile[self.index + dist_idx]  # velocity
-                ref_state[3, t] = self.c_splines[2][self.index + dist_idx]  # yaw
+                ref_state[0, t] = self.c_splines[0][current_idx + dist_idx]  # x
+                ref_state[1, t] = self.c_splines[1][current_idx + dist_idx]  # y
+                ref_state[2, t] = speed_profile[current_idx + dist_idx]  # velocity
+                ref_state[3, t] = self.c_splines[2][current_idx + dist_idx]  # yaw
                 ref_input[0, t] = 0
             else:
-                ref_state[0, t] = self.c_splines[0][course_len - 1]
-                ref_state[1, t] = self.c_splines[1][course_len - 1]
+                ref_state[0, t] = self.c_splines[0, course_len - 1]
+                ref_state[1, t] = self.c_splines[1, course_len - 1]
                 ref_state[2, t] = speed_profile[course_len - 1]
-                ref_state[3, t] = self.c_splines[2][course_len - 1]
+                ref_state[3, t] = self.c_splines[2, course_len - 1]
                 ref_input[0, t] = 0
 
         return ref_state, ref_input
@@ -150,7 +166,7 @@ class Controller:
 
             constraints += [states[:, t + 1] == A * states[:, t] + B * inputs[:, t] + C]
 
-            if t < (T - 1):
+            if t < (TIME_HORIZON - 1):
                 cost += cp.quad_form(inputs[:, t + 1] - inputs[:, t], I_COST_DIFF)
                 constraints += [cp.abs(inputs[1, t + 1] - inputs[1, t]) <= MAX_DSTEER * DT]
 
@@ -180,16 +196,19 @@ class Controller:
                     o_inputs = np.zeros(2)
 
             self.o_inputs = o_inputs
+            self.o_states = o_states
 
             return o_inputs, o_states
 
     def _predict(self, curr_state):
         predicted_states = np.zeros([NUM_STATE_VARS, TIME_HORIZON + 1])
+        inputs = predicted_states.copy()
 
         for i, x in enumerate(curr_state):
-            predicted_states[i][0] = x
+            predicted_states[0, i] = x
+            inputs[0, i] = self.o_input[0]
 
-        for acc_i, sa_i, i in zip(self.o_inputs[0], self.o_inputs[1], range(1, TIME_HORIZON + 1)):
+        for acc_i, sa_i, i in zip(inputs[0][:], inputs[1][:], range(1, TIME_HORIZON + 1)):
             state = self._update(curr_state, acc_i, sa_i)
             predicted_states[0, i] = state[0]
             predicted_states[1, i] = state[1]

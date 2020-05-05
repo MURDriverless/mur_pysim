@@ -32,22 +32,30 @@ if __name__ == "__main__":
         total_reward = 0.0
         steps = 0
         restart = False
-        traj = c_splines.get()
+        c_splines  = c_splines.get()
         # Get initial state
         initial_x, initial_y = env.car.hull.position
+        initial_states = np.array([initial_x, initial_y, 0, 0])
         # Initialise MPC
-        mpc = mpc.Controller(initial_x, initial_y, traj, FPS)
+        mpc = mpc.Controller(initial_states, c_splines)
+        action = np.zeros(2)
 
         while True:
+            # x, y position
             x_pos, y_pos = env.car.hull.position
-            # NEED TO BE ABLE TO CACLULATE THESE!!!
-            abs_velocity = env.car.hull.
-            ang_velocity = env.car.
-            state = np.array([x_pos, y_pos,  ])
-            actions = mpc.iterate()
-            s, r, done, info = env.step(a)
-            total_reward += r
+            # velocity
+            abs_velocity = env.car.velocity
+            # steering angle
+            sa = env.car.wheels[0].phase
+            # state formatting
+            current_state = np.array([x_pos, y_pos, abs_velocity, 0])
+            # MPC prescription and optimal action identification
+            action = mpc.iterate(current_state, sa)
+            action = np.hstack((action, 0))
+            print(action)
 
+            s, r, done, info = env.step(action)
+            total_reward += r
             steps += 1
 
             env.render()
