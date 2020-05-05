@@ -79,7 +79,6 @@ class Controller:
             o_inputs, o_states = self._compute(ref_states, ref_inputs, predict_states, curr_state)
 
         self.steps += 1
-        print(o_inputs)
         return o_inputs[:, 0]
 
     def _calc_spline_dist(self):
@@ -159,6 +158,7 @@ class Controller:
         return a_dt, b_dt, c_dt
 
     def _compute(self, ref_states, ref_inputs, predict_states, curr_states):
+        print(ref_states)
         states = cp.Variable((NUM_STATE_VARS, TIME_HORIZON + 1))
         inputs = cp.Variable((NUM_OUTPUTS, TIME_HORIZON))
         cost = 0.0
@@ -205,11 +205,8 @@ class Controller:
                 o_states = np.zeros(4)
                 o_inputs = np.zeros(2)
 
-        print(o_inputs)
-
         self.o_inputs = o_inputs
         self.o_states = o_states
-
 
         return o_inputs, o_states
 

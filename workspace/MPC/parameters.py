@@ -24,7 +24,7 @@ NUM_STATE_VARS = 4
 NUM_OUTPUTS = 2
 TIME_HORIZON = 5 # steps
 
-MAX_DSTEER = np.radians(30)
+MAX_DSTEER = np.radians(15)
 
 I_COST = np.diag([0.01, 0.01])
 I_COST_DIFF = np.diag([0.01, 1.0])

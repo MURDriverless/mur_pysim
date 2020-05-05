@@ -74,7 +74,11 @@ if __name__ == "__main__":
             current_state = np.array([x_pos, y_pos, abs_velocity, 0])
             # MPC prescription and optimal action identification
             action = mpc.iterate(current_state, sa)
-            action = np.hstack((action, 0))
+            action = np.array([action[1], action[0], 0])
+
+            # 0: acc/brake
+            # 1: steering
+
             if action[1] <= 0:
                 action[2] = -action[1]
                 action[1] = 0
