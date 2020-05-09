@@ -40,7 +40,7 @@ from time import time
 import cvxpy as cp
 import numpy as np
 
-DT = np.float32(60 / FPS)
+DT = np.float32(5 / FPS)
 
 
 class Controller:

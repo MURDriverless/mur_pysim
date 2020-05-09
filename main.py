@@ -68,15 +68,13 @@ if __name__ == "__main__":
             x_pos, y_pos = env.car.hull.position
             # velocity
             abs_velocity = env.car.velocity
-            # steering angle
+            # steering angle THIS IS WRONG I THINK
             sa = env.car.wheels[0].phase
             # state formatting
             current_state = np.array([x_pos, y_pos, abs_velocity, sa])
             # MPC prescription and optimal action identification
             action = mpc.iterate(current_state, sa)
             action = np.array([action[1], action[0], 0])
-            print(action)
-            print(current_state)
 
             # 0: acc/brake
             # 1: steering
