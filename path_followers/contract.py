@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 class PathFollowerContract(metaclass=ABCMeta):
     @abstractmethod
-    def move(self, states, reference):
+    def move(self, states, reference=None):
         """
         Issues actuation commands to motor control.
 
@@ -22,5 +22,11 @@ class PathFollowerContract(metaclass=ABCMeta):
                 - throttle: constrained between -1 and 1. 1 signifies maximum acceleration,
                   while -1 indicates maximum deceleration.
                 - steering angle rate: unsure of the constraints for now, will update later.
+
+        Notes:
+            `states` will contain an array of cone positions, and in this particular case,
+            the `reference` should be set to None, and developers are encouraged to explain
+            why they are only accessing the first n elements of the reference, because
+            the last one is related to the cones.
         """
         pass
