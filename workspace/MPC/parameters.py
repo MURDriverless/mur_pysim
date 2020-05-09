@@ -1,6 +1,6 @@
 import numpy as np
 
-TARGET_SPEED = 5
+TARGET_SPEED = 2
 N_IDX_SEARCH = 10
 
 WHEELPOS = [
@@ -9,7 +9,7 @@ WHEELPOS = [
 ]
 
 # Vehicle Parameters
-CAR_LENGTH = WHEELPOS[0][1] - WHEELPOS[2][1]
+CAR_LENGTH = (WHEELPOS[0][1] - WHEELPOS[2][1]) / 2
 CAR_WIDTH = WHEELPOS[1][0] - WHEELPOS[0][0]
 
 # Physics Parameters (Need to source)
@@ -22,13 +22,13 @@ CAR_WIDTH = WHEELPOS[1][0] - WHEELPOS[0][0]
 # MPC Parameters
 NUM_STATE_VARS = 4
 NUM_OUTPUTS = 2
-TIME_HORIZON = 5 # steps
+TIME_HORIZON = 10 # steps
 
 MAX_DSTEER = np.radians(15)
 
 I_COST = np.diag([0.01, 0.01])
-I_COST_DIFF = np.diag([0.01, 1.0])
-S_COST = np.diag([1.0, 1.0, 0.5, 0.5])
+I_COST_DIFF = np.diag([0.01, 0.5])
+S_COST = np.diag([1, 1, 0.3, 0.3])
 S_FINAL = S_COST
 
 

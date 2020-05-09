@@ -35,12 +35,12 @@ from .parameters import *
 import sys
 sys.path.append("../..")
 from simulation.parameters import FPS
+from time import time
 
 import cvxpy as cp
 import numpy as np
-from scipy.spatial import distance
 
-DT = np.float32(1 / FPS)
+DT = np.float32(60 / FPS)
 
 
 class Controller:
@@ -92,8 +92,9 @@ class Controller:
         return (curr_state[2] * np.tan(delta)) / CAR_LENGTH
 
     def _calc_ref_traj(self, curr_state):
+        # 0.004 seconds
         ref_state = np.zeros((NUM_STATE_VARS, TIME_HORIZON + 1))
-        ref_input = np.zeros((2, TIME_HORIZON + 1))
+        ref_input = np.zeros((NUM_OUTPUTS, TIME_HORIZON + 1))
         course_len = self.c_splines.shape[1]
         speed_profile = TARGET_SPEED * np.ones(course_len)
 
@@ -106,10 +107,11 @@ class Controller:
         ref_state[3, 0] = self.c_splines[2][current_idx]
 
         for t in range(TIME_HORIZON + 1):
+            # calculate the distance travelled using velocity state
             dist_travelled += curr_state[2] * DT
             dist_idx = np.round(dist_travelled / self.spline_dist).astype(int)
 
-            if (self.index + dist_idx) < course_len:
+            if (current_idx + dist_idx) < course_len:
                 ref_state[0, t] = self.c_splines[0][current_idx + dist_idx]  # x
                 ref_state[1, t] = self.c_splines[1][current_idx + dist_idx]  # y
                 ref_state[2, t] = speed_profile[current_idx + dist_idx]  # velocity
@@ -137,7 +139,9 @@ class Controller:
 
     def _model_matrix(self, v, phi, delta):
         """
+            Time = < 0.0001
             Calculate the
+
         """
         a_dt = np.eye(NUM_STATE_VARS, dtype=np.float32)
         a_dt[0, 2] = DT * np.cos(phi)
@@ -158,7 +162,6 @@ class Controller:
         return a_dt, b_dt, c_dt
 
     def _compute(self, ref_states, ref_inputs, predict_states, curr_states):
-        print(ref_states)
         states = cp.Variable((NUM_STATE_VARS, TIME_HORIZON + 1))
         inputs = cp.Variable((NUM_OUTPUTS, TIME_HORIZON))
         cost = 0.0
@@ -180,30 +183,29 @@ class Controller:
                 cost += cp.quad_form(inputs[:, t + 1] - inputs[:, t], I_COST_DIFF)
                 constraints += [cp.abs(inputs[1, t + 1] - inputs[1, t]) <= MAX_DSTEER * DT]
 
-            cost += cp.quad_form(ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
+        cost += cp.quad_form(ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
 
-            constraints += [states[:, 0] == curr_states] # first state is curr state
-            constraints += [states[2, :] >= 0] # velocity >= 0
-            constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
-            constraints += [cp.abs(inputs[1, :]) <= 0.4] # max steer
+        constraints += [states[:, 0] == curr_states] # first state is curr state
+        constraints += [states[2, :] >= 0] # velocity >= 0
+        constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
+        constraints += [cp.abs(inputs[1, :]) <= 2] # max steer
+        problem = cp.Problem(cp.Minimize(cost), constraints)
+        problem.solve(solver=cp.ECOS, verbose=self.verbose, feastol=1e-2)
 
-            problem = cp.Problem(cp.Minimize(cost), constraints)
-            problem.solve(solver=cp.ECOS, verbose=self.verbose, parallel=True)
+        if problem.status == cp.OPTIMAL or problem.status == cp.OPTIMAL_INACCURATE:
+            o_states = np.array((
+                states.value[0, :],
+                states.value[1, :],
+                states.value[2, :],
+                states.value[3, :]))
 
-            if problem.status == cp.OPTIMAL or problem.status == cp.OPTIMAL_INACCURATE:
-                o_states = np.array([
-                    np.array(states.value[0, :]).flatten(),
-                    np.array(states.value[1, :]).flatten(),
-                    np.array(states.value[2, :]).flatten(),
-                    np.array(states.value[3, :]).flatten()])
+            o_inputs = np.array((
+                inputs.value[0, :],
+                inputs.value[1, :]))
 
-                o_inputs = np.array([
-                    np.array(inputs.value[0, :]).flatten(),
-                    np.array(inputs.value[1, :]).flatten()])
-
-            else:
-                o_states = np.zeros(4)
-                o_inputs = np.zeros(2)
+        else:
+            o_states = np.zeros((4, TIME_HORIZON))
+            o_inputs = np.zeros((2, TIME_HORIZON))
 
         self.o_inputs = o_inputs
         self.o_states = o_states
@@ -212,7 +214,7 @@ class Controller:
 
     def _predict(self, curr_state):
         predicted_states = np.zeros([NUM_STATE_VARS, TIME_HORIZON + 1])
-        inputs = predicted_states.copy()
+        inputs = np.zeros((NUM_OUTPUTS, TIME_HORIZON + 1))
 
         # Set the t = 0 for predicted_states, inputs to be
         for i in range(NUM_STATE_VARS):

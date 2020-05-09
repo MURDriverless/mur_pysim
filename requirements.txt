@@ -6,3 +6,5 @@ numpy~=1.18.1
 pyglet==1.5.3
 pynput==1.6.8
 PyAutoGUI~=0.9.50
+future~=0.18.2
+cvxpy~=1.0.31

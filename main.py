@@ -71,10 +71,12 @@ if __name__ == "__main__":
             # steering angle
             sa = env.car.wheels[0].phase
             # state formatting
-            current_state = np.array([x_pos, y_pos, abs_velocity, 0])
+            current_state = np.array([x_pos, y_pos, abs_velocity, sa])
             # MPC prescription and optimal action identification
             action = mpc.iterate(current_state, sa)
             action = np.array([action[1], action[0], 0])
+            print(action)
+            print(current_state)
 
             # 0: acc/brake
             # 1: steering
@@ -83,8 +85,6 @@ if __name__ == "__main__":
                 action[2] = -action[1]
                 action[1] = 0
 
-
-            print(action)
 
             s, r, done, info = env.step(action)
             total_reward += r
