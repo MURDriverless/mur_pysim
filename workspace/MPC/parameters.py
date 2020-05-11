@@ -1,6 +1,6 @@
 import numpy as np
 
-TARGET_SPEED = 2
+TARGET_SPEED = 5.0
 N_IDX_SEARCH = 10
 
 WHEELPOS = [

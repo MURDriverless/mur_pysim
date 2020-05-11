@@ -40,7 +40,7 @@ from time import time
 import cvxpy as cp
 import numpy as np
 
-DT = np.float32(5 / FPS)
+DT = np.float32(1 / FPS)
 
 
 class Controller:
@@ -190,7 +190,7 @@ class Controller:
         constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
         constraints += [cp.abs(inputs[1, :]) <= 2] # max steer
         problem = cp.Problem(cp.Minimize(cost), constraints)
-        problem.solve(solver=cp.ECOS, verbose=self.verbose, feastol=1e-2)
+        problem.solve(solver=cp.ECOS, verbose=self.verbose)
 
         if problem.status == cp.OPTIMAL or problem.status == cp.OPTIMAL_INACCURATE:
             o_states = np.array((
