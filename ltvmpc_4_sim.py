@@ -4,7 +4,16 @@ import cvxpy
 import matplotlib.pyplot as plt
 import path_planners.cubic_spline as cubic_spline_planner
 
-L = 2.5  # [m]  # Obtained from Atsushi Sakai
+NX = 4  # x, y, v, yaw
+NU = 2  # a, delta
+L = 2.5  # [m]
+
+MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
+MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
+MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
+MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+MAX_ACCEL = 1.0  # maximum accel [m/ss]
+MIN_ACCEL = -1.0  # maximum braking [m/ss]
 
 # ----------------------------------------------------------
 # LTV MPC stuffs                                           |
@@ -16,18 +25,17 @@ def kinematic_bicycle_c(x, u):
     Non-linear continuous kinematics of Kinematic Bicycle
 
     Args:
-        x (np.ndarray): Current state measurements
-        u (np.ndarray): Current actuation measurements
+        x (np.ndarray): 1D vector of size NX
+        u (np.ndarray): 1D vector of size NU
 
     Returns:
         np.ndarray: dxdt, which is the derivative of the states
     """
-    dxdt = np.zeros(5)
+    dxdt = np.zeros(NX)
     dxdt[0] = x[2] * math.cos(x[3])  # x_dot
     dxdt[1] = x[2] * math.sin(x[3])  # y_dot
     dxdt[2] = u[0]  # v_dot (acceleration)
-    dxdt[3] = (x[2] * math.tan(x[4])) / L  # yaw_dot
-    dxdt[4] = u[1]  # deltaf_dot (steering angular velocity)
+    dxdt[3] = (x[2] * math.tan(u[1])) / L  # yaw_dot
     return dxdt
 
 
@@ -44,8 +52,18 @@ def kinematic_bicycle_d(xk, uk, Ts, repeat_sampling=False):
     Returns:
         np.ndarray: xk1, which is the predicted next state
     """
-    MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
-    MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+    # Constrain inputs to maximum and minimum values
+    # Acceleration
+    if uk[0] >= MAX_ACCEL:
+        uk[0] = MAX_ACCEL
+    elif uk[0] <= MIN_ACCEL:
+        uk[0] = MIN_ACCEL
+    # Delta
+    if uk[1] >= MAX_STEER:
+        uk[1] = MAX_STEER
+    elif uk[1] <= -MAX_STEER:
+        uk[1] = -MAX_STEER
+
     if repeat_sampling:
         M = 10  # number of repeated samplings
         dt = Ts / M
@@ -57,176 +75,141 @@ def kinematic_bicycle_d(xk, uk, Ts, repeat_sampling=False):
         dt = Ts
         dxdt = kinematic_bicycle_c(xk, uk)
         xk1 = np.add(xk, dt * dxdt)
-    if xk1[2] > MAX_SPEED:
-        xk1[2] = MAX_SPEED
-    elif xk1[2] < MIN_SPEED:
-        xk1[2] = MIN_SPEED
     return xk1
 
 
-# def get_linear_model_matrix(xk, Ts):
-#     NX = len(xk)
-#     NU = 2
-#     DT = Ts
-#     v = xk[2]
-#     phi = xk[3]
-#     delta = xk[4]
-#     A = np.zeros((NX, NX))
-#     A[0, 0] = 1.0
-#     A[1, 1] = 1.0
-#     A[2, 2] = 1.0
-#     A[3, 3] = 1.0
-#     A[0, 2] = DT * math.cos(phi)
-#     A[0, 3] = - DT * v * math.sin(phi)
-#     A[1, 2] = DT * math.sin(phi)
-#     A[1, 3] = DT * v * math.cos(phi)
-#     A[3, 2] = DT * math.tan(delta) / L
-#
-#     B = np.zeros((NX, NU))
-#     B[2, 0] = DT
-#     B[3, 1] = DT * v / (L * math.cos(delta) ** 2)
-#
-#     C = np.zeros(NX)
-#     C[0] = DT * v * math.sin(phi) * phi
-#     C[1] = - DT * v * math.cos(phi) * phi
-#     C[3] = - DT * v * delta / (L * math.cos(delta) ** 2)
-#
-#     return A, B, C
-
-
-def kinematic_bicycle_j(xbar, Ts):
+def linearise_kinematic_bicycle_d(v, yaw, delta, Ts):
     """
-    Jacobian for non-linear discrete kinematics of Kinematic Bicycle
+    Obtain A, B, C of linearised discrete kinematics via Euler Forward & Taylor's 1st Order Approximation
 
     Args:
-        xbar (np.ndarray): Current state measurements
+        v (float): Velocity of centre of vehicle
+        yaw (float): Current heading of the vehicle centre
+        delta (float): Current steering input into the vehicle
+        Ts (float): Controller sampling period
 
     Returns:
-        np.ndarray: [J_A, J_B], which are linearised A and B at xbar
+        np.ndarray: [A, B, C]
     """
-    # Initialise variables
-    J_A = np.zeros((5, 5))
-    J_B = np.zeros((5, 2))
-
     # Pre-compute variables to reduce computation
-    yaw_dot_without_v = math.tan(xbar[4]) / L  # tan(deltaf) / L
-    # yaw_dot = xbar[2] * yaw_dot_without_v  # v * yaw_dot_without_v = v * tan(deltaf) / L
-    # v_times_yaw_dot = xbar[2] * yaw_dot
+    sin_yaw = math.sin(yaw)
+    cos_yaw = math.cos(yaw)
+    cos_delta = math.cos(delta)
 
-    # Jacobian for state
-    J_A[0, 2] = math.cos(xbar[3])
-    J_A[0, 3] = -xbar[2] * math.sin(xbar[3])
-    J_A[1, 2] = math.sin(xbar[3])
-    J_A[1, 3] = xbar[2] * math.cos(xbar[3])
-    J_A[3, 2] = yaw_dot_without_v
-    J_A[3, 4] = xbar[2] / (L * (math.cos(xbar[4]) ** 2))
+    # Compute Jacobians of A and B at equilibrium
+    A_lin = np.zeros((NX, NX))
+    A_lin[0, 2] = cos_yaw
+    A_lin[0, 3] = -v * sin_yaw
+    A_lin[1, 2] = sin_yaw
+    A_lin[1, 3] = v * cos_yaw
+    A_lin[3, 2] = math.tan(delta) / L
+    B_lin = np.zeros((NX, NU))
+    B_lin[2, 0] = 1
+    B_lin[3, 1] = v / (L * (cos_delta ** 2))
 
-    # Jacobian for input
-    J_B[2, 0] = 1
-    J_B[4, 1] = 1
+    # Note that A and B are the returned linearised state difference equations
+    A = np.add(np.eye(NX), A_lin * Ts)
+    B = B_lin * Ts
 
-    return [J_A, J_B]
+    # C is not the observation matrix, but instead a constant term in Taylor's approximation.
+    # Refer to Atsushi Sakai's PathTracking/Model_predictive_speed_and_steering_control.ipynb
+    C = np.zeros(NX)
+    C[0] = Ts * v * sin_yaw * yaw
+    C[1] = - Ts * v * cos_yaw * yaw
+    C[3] = - Ts * v * delta / (L * (cos_delta ** 2))
+    return A, B, C
 
 
-def calculate_xbar(x0, oa, ow, Ts, horizon_length):
+def calculate_xbar(x0, oa, od, Ts, horizon_length):
     """
     Computes xbar for the range [0, horizon_length] (inclusive), by applying
-    optimal acceleration and omega at each iteration
+    optimal acceleration and delta at each iteration
 
     Args:
         x0 (numpy.ndarray): 1D vector of size NX containing current state
         oa (numpy.ndarray): 1D vector of size horizon_length listing optimal acceleration
-        ow (numpy.ndarray): 1D vector of size horizon_length listing optimal omega (change of delta)
+        od (numpy.ndarray): 1D vector of size horizon_length listing optimal delta
         Ts (float): sampling period
         horizon_length (int): prediction horizon length
 
     Returns:
         numpy.ndarray: 2D vector of size (NX, horizon_length + 1)
     """
-    xbar = np.zeros((len(x0), horizon_length + 1))
-    xk = np.zeros(len(x0))
-    uk = np.zeros(2)  # 2 inputs, a (acceleration) and w (omega, change of delta)
+    xbar = np.zeros((NX, horizon_length + 1))
+    xk = np.zeros(NX)
+    uk = np.zeros(NU)
     uk[0] = oa[0]
-    uk[1] = ow[0]
+    uk[1] = od[0]
 
     # At horizon = 0, xbar is the current state, which is x0
     for i in range(len(x0)):
         xbar[i, 0] = x0[i]
         xk[i] = x0[i]
 
-    # In the next horizons, calculate xbar by applying optimal oa and ow to the plant
-    # Note that we set end range to be "horizon_length + 1" as we are starting from 1
-    for (ai, wi, i) in zip(oa, ow, range(1, horizon_length + 1)):
+    # In the next horizons, calculate xbar by applying optimal oa and od to the plant
+    # Note that we set end range to be "horizon_length + 1" as we are iterating from 1.
+    # This is because the first horizon is the current measurements
+    for (ai, di, i) in zip(oa, od, range(1, horizon_length + 1)):
         # Apply input to plant
-        x, y, v, yaw, delta = kinematic_bicycle_d(xk, uk, Ts)
+        x, y, v, yaw = kinematic_bicycle_d(xk, uk, Ts)
         # Update state from plant
         xk[0] = x
         xk[1] = y
         xk[2] = v
         xk[3] = yaw
-        xk[4] = delta
         # Update optimal inputs for next iteration
-        uk[0] = oa[i-1]
-        uk[1] = ow[i-1]
+        uk[0] = ai
+        uk[1] = di
         # Set xbar for subsequent horizons to be exactly the states from applying
         # optimal inputs
         xbar[0, i] = xk[0]
         xbar[1, i] = xk[1]
         xbar[2, i] = xk[2]
         xbar[3, i] = xk[3]
-        xbar[4, i] = xk[4]
     return xbar
 
 
-def iterative_ltv_mpc(x0, xref, oa, ow, Ts, horizon_length):
+def iterative_ltv_mpc(x0, xref, dref, oa, od, Ts, horizon_length):
     MAX_ITER = 3
     DU_TH = 0.1  # iteration finish param
-    ox, oy, ov, oyaw, odelta = 0.0, 0.0, 0.0, 0.0, 0.0
+    ox, oy, ov, oyaw = 0.0, 0.0, 0.0, 0.0
     for i in range(MAX_ITER):
-        xbar = calculate_xbar(x0, oa, ow, Ts, horizon_length)
-        prev_oa, prev_ow = oa[:], ow[:]
-        ox, oy, ov, oyaw, odelta, oa, ow = ltv_mpc_control(x0, xref, xbar, Ts, horizon_length)
-        du = sum(abs(oa - prev_oa)) + sum(abs(ow - prev_ow))  # calc u change value
+        xbar = calculate_xbar(x0, oa, od, Ts, horizon_length)
+        prev_oa, prev_od = oa[:], od[:]
+        ox, oy, ov, oyaw, oa, od = ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length)
+        du = sum(abs(oa - prev_oa)) + sum(abs(od - prev_od))  # calc u change value
         if du <= DU_TH:
             break
     else:
         print("Iterative is max iter")
 
-    return ox, oy, ov, oyaw, odelta, oa, ow
+    return ox, oy, ov, oyaw, oa, od
 
 
-def ltv_mpc_control(x0, xref, xbar, Ts, horizon_length):
+def ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length):
     """
-    Computes optimal acceleration and omega for subsequent horizons, given the current state and
-    reference, along with the equilibrium value xbar to linearise the car kinematics
+    Computes optimal acceleration and delta for subsequent horizons, given the current state, states reference,
+    steering input reference and the equilibrium value xbar to linearise the car kinematics
 
     Args:
         x0 (numpy.ndarray): 1D vector of size NX containing the current state
-        xref (numpy.ndarray): 1D vector of size NX containing the current reference
+        xref (numpy.ndarray): 2D vector of size (NX, horizon_length + 1) containing the current state reference
+        dref (numpy.ndarray): 2D vector of size (1, horizon_length) containing the current steering reference
         xbar (numpy.ndarray): 2D vector of size (NX, horizon_length+1) containing the equilibrium values at each horizon
         Ts (float): sampling period (or dt)
         horizon_length (int): prediction horizon length
 
     Returns:
         np.ndarray: 2D vector of size (NX, horizon_length) -> [oa; ow]
-            It lists the optimal acceleration and optimal omega for horizons up to horizon_length
+            It lists the optimal acceleration and optimal delta for horizons up to horizon_length
     """
-    NX = len(x0)
-    NU = 2  # acceleration and omega
-    Q = np.diag([1.0, 1.0, 0.5, 0.5, 1.0])  # state cost matrix
+    Q = np.diag([1.0, 1.0, 0.5, 0.5])  # state cost matrix
     Qf = Q  # final state cost matrix
     R = np.diag([0.01, 0.01])  # input cost matrix
     Rd = np.diag([0.01, 1.0])  # input difference cost matrix
-    MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
-    MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
-    MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
-    MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
-    MAX_ACCEL = 1.0  # maximum accel [m/ss]
-    MIN_ACCEL = -1.0  # maximum braking [m/ss]
 
     x = cvxpy.Variable((NX, horizon_length + 1))
     u = cvxpy.Variable((NU, horizon_length))
-
     cost = 0.0
     constraints = []
 
@@ -237,12 +220,12 @@ def ltv_mpc_control(x0, xref, xbar, Ts, horizon_length):
         if t != 0:
             cost += cvxpy.quad_form(xref[:, t] - x[:, t], Q)
 
-        # jacobian = kinematic_bicycle_j(xbar[:, t])
-        A, B = kinematic_bicycle_j(xbar[:, t], Ts)
-        constraints += [x[:, t+1] == A * x[:, t] + B * u[:, t]]
+        A, B, C = linearise_kinematic_bicycle_d(xbar[2, t], xbar[3, t], dref[0, t], Ts)
+        constraints += [x[:, t+1] == A * x[:, t] + B * u[:, t] + C]
 
         if t < (horizon_length - 1):
             cost += cvxpy.quad_form(u[:, t + 1] - u[:, t], Rd)
+            # Saturate the changes in steering from previous state
             constraints += [cvxpy.abs(u[1, t + 1] - u[1, t]) <= MAX_DSTEER * Ts]
 
     # At the end of the horizon, add cost of Qf
@@ -253,13 +236,11 @@ def ltv_mpc_control(x0, xref, xbar, Ts, horizon_length):
     # Constrain speed
     constraints += [x[2, :] <= MAX_SPEED]
     constraints += [x[2, :] >= MIN_SPEED]
-    # Constrain delta
-    constraints += [cvxpy.abs(x[4, :]) <= MAX_STEER]
     # Constrain acceleration
     constraints += [u[0, :] <= MAX_ACCEL]
     constraints += [u[0, :] >= MIN_ACCEL]
-    # Constrain omega
-    constraints += [cvxpy.abs(u[1, :]) <= MAX_DSTEER]
+    # Constrain delta
+    constraints += [cvxpy.abs(u[1, :]) <= MAX_STEER]
 
     # Solve optimisation problem
     problem = cvxpy.Problem(cvxpy.Minimize(cost), constraints)
@@ -270,14 +251,12 @@ def ltv_mpc_control(x0, xref, xbar, Ts, horizon_length):
         oy = np.array(x.value[1, :]).flatten()
         ov = np.array(x.value[2, :]).flatten()
         oyaw = np.array(x.value[3, :]).flatten()
-        odelta = np.array(x.value[4, :]).flatten()
         oa = np.array(u.value[0, :]).flatten()
-        ow = np.array(u.value[1, :]).flatten()
+        od = np.array(u.value[1, :]).flatten()
     else:
         print("No solution")
-        ox, oy, ov, oyaw, odelta, oa, ow = None, None, None, None, None, None, None
-
-    return ox, oy, ov, oyaw, odelta, oa, ow
+        ox, oy, ov, oyaw, oa, od = None, None, None, None, None, None
+    return ox, oy, ov, oyaw, oa, od
 
 
 # ----------------------------------------------------------
@@ -328,10 +307,32 @@ def calc_nearest_index(state, cx, cy, cyaw, pind):
     return ind, mind
 
 
-def calc_ref_trajectory(state, cx, cy, cyaw, sp, dl, pind, NX, horizon_length, dt):
+def calc_ref_trajectory(x0, cx, cy, cyaw, sp, dl, pind, Ts, horizon_length):
+    """
+    Generates states and steering input reference based on the centre positions of the track and speed profile,
+    up to horizon length
+
+    Args:
+        x0 (numpy.ndarray): 1D array of length NX, which is the current state measurements
+        cx (numpy.ndarray): course x - 1D array of unknown length
+        cy (numpy.ndarray): course y - 1D array of unknown length, same size as cx
+        cyaw (numpy.ndarray): course yaw - 1D array of unknown length
+        sp (numpy.ndarray): speed profile - 1D array of unknown length, presumably the same size as cx
+        dl (float): course tick
+        pind (int): position index
+        Ts (float): controller sampling period
+        horizon_length (int): prediction horizon length
+
+    Returns:
+        numpy.ndarray: [xref, dref, tind]
+            - xref (numpy.ndarray): state reference, 2D matrix of size (NX, horizon_length + 1)
+            - dref (numpy.ndarray): steering input reference, 1D array of of length (horizon_length + 1)
+            - tind (int): nearest next forward (front of car) index in the course where the car is currently at
+    """
     xref = np.zeros((NX, horizon_length + 1))
+    dref = np.zeros((1, horizon_length + 1))
     ncourse = len(cx)
-    ind, _ = calc_nearest_index(state, cx, cy, cyaw, pind)
+    ind, _ = calc_nearest_index(x0, cx, cy, cyaw, pind)
 
     if pind >= ind:
         ind = pind
@@ -340,26 +341,25 @@ def calc_ref_trajectory(state, cx, cy, cyaw, sp, dl, pind, NX, horizon_length, d
     xref[1, 0] = cy[ind]
     xref[2, 0] = sp[ind]
     xref[3, 0] = cyaw[ind]
-    xref[4, 0] = 0.0  # steer operational point should be 0
+    dref[0, 0] = 0.0  # steer operational point should be 0
     travel = 0.0
 
-
     for i in range(horizon_length + 1):
-        travel += abs(state[2]) * dt
+        travel += abs(x0[2]) * Ts
         dind = int(round(travel / dl))
         if (ind + dind) < ncourse:
             xref[0, i] = cx[ind + dind]
             xref[1, i] = cy[ind + dind]
             xref[2, i] = sp[ind + dind]
             xref[3, i] = cyaw[ind + dind]
-            xref[4, i] = 0.0
+            dref[0, i] = 0.0
         else:
             xref[0, i] = cx[ncourse - 1]
             xref[1, i] = cy[ncourse - 1]
             xref[2, i] = sp[ncourse - 1]
             xref[3, i] = cyaw[ncourse - 1]
-            xref[4, i] = 0.0
-    return xref, ind
+            dref[0, i] = 0.0
+    return xref, dref, ind
 
 
 def calc_speed_profile(cx, cy, cyaw, target_speed):
@@ -431,7 +431,7 @@ def plot_car(x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # pragma: n
     WHEEL_LEN = 0.3  # [m]
     WHEEL_WIDTH = 0.2  # [m]
     TREAD = 0.7  # [m]
-    WB = 2.5  # [m]
+    WB = L  # [m]
 
     outline = np.array([[-BACKTOWHEEL, (LENGTH - BACKTOWHEEL), (LENGTH - BACKTOWHEEL), -BACKTOWHEEL, -BACKTOWHEEL],
                         [WIDTH / 2, WIDTH / 2, - WIDTH / 2, -WIDTH / 2, WIDTH / 2]])
@@ -488,7 +488,7 @@ def plot_car(x, y, yaw, steer=0.0, cabcolor="-r", truckcolor="-k"):  # pragma: n
 
 
 def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation):
-    MAX_TIME = 20  # max simulation time
+    MAX_TIME = 500  # max simulation time
     goal = [cx[-1], cy[-1]]
 
     # initial yaw compensation
@@ -503,12 +503,11 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
     y = [x0[1]]
     v = [x0[2]]
     yaw = [x0[3]]
-    delta = [x0[4]]
     acceleration = [0.0]
-    omega = [0.0]
+    delta = [0.0]
     target_ind, _ = calc_nearest_index(x0, cx, cy, cyaw, 0)
     oa = np.zeros(horizon_length)  # optimal acceleration
-    ow = np.zeros(horizon_length)  # optimal omega
+    od = np.zeros(horizon_length)  # optimal delta
     xk = x0
     uk = np.zeros(2)
     uk[0] = 0.0
@@ -517,22 +516,22 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
     cyaw = smooth_yaw(cyaw)
 
     while time <= MAX_TIME:
-        xref, target_ind = calc_ref_trajectory(xk, cx, cy, cyaw, sp, dl, target_ind, 5, horizon_length, Ts)
+        xref, dref, target_ind = calc_ref_trajectory(xk, cx, cy, cyaw, sp, dl, target_ind, Ts, horizon_length)
 
-        ox, oy, ov, oyaw, odelta, oa, ow = iterative_ltv_mpc(xk, xref, oa, ow, Ts, horizon_length)
-        # xbar = calculate_xbar(x0, oa, ow, Ts, horizon_length)
-        # ox, oy, ov, oyaw, odelta, oa, ow = ltv_mpc_control(x0, xref, xbar, Ts, horizon_length)
+        ox, oy, ov, oyaw, oa, od = iterative_ltv_mpc(xk, xref, dref, oa, od, Ts, horizon_length)
+        # xbar = calculate_xbar(xk, oa, od, Ts, horizon_length)
+        # ox, oy, ov, oyaw, oa, od = ltv_mpc_control(xk, xref, dref, xbar, Ts, horizon_length)
 
         if oa is not None:
-            ai, wi = oa[0], ow[0]
+            ai, di = oa[0], od[0]
         else:
-            ai, wi = 0.0, 0.0
+            ai, di = 0.0, 0.0
 
         print(f"vref={xref[0][2]}, v={xk[2]}\n")
 
         # Update plant
         uk[0] = ai
-        uk[1] = wi
+        uk[1] = di
         xk = kinematic_bicycle_d(xk, uk, Ts)
         time += Ts
 
@@ -541,9 +540,8 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
         y.append(xk[1])
         v.append(xk[2])
         yaw.append(xk[3])
-        delta.append(xk[4])
         acceleration.append(ai)
-        omega.append(wi)
+        delta.append(di)
 
         if check_goal(xk, goal, target_ind, len(cx)):
             print("Goal")
@@ -560,14 +558,14 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
             plt.plot(x, y, "ob", label="trajectory")
             plt.plot(xref[0, :], xref[1, :], "xk", label="xref")
             plt.plot(cx[target_ind], cy[target_ind], "xg", label="target")
-            plot_car(xk[0], xk[1], xk[3], steer=wi)
+            plot_car(xk[0], xk[1], xk[3], steer=di)
             plt.axis("equal")
             plt.grid(True)
             plt.title("Time[s]:" + str(round(time, 2))
                       + ", speed[km/h]:" + str(round(xk[2] * 3.6, 2)))
             plt.pause(0.0001)
 
-    return t, x, y, yaw, v, omega, acceleration
+    return t, x, y, yaw, v, delta, acceleration
 
 
 def main():
@@ -579,12 +577,11 @@ def main():
     cx, cy, cyaw, ck = get_switch_back_course(dl)
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
-    x0 = np.zeros(5)
+    x0 = np.zeros(NX)
     x0[0] = cx[0]
     x0[1] = cy[0]
     x0[2] = 0.0
     x0[3] = 0.0
-    x0[4] = 0.0
 
     Ts = 0.2
     horizon_length = 5

@@ -7,12 +7,7 @@ import cvxpy
 import math
 import numpy as np
 import sys
-sys.path.append("../../PathPlanning/CubicSpline/")
-
-try:
-    import cubic_spline_planner
-except:
-    raise
+import path_planners.cubic_spline as cubic_spline_planner
 
 
 NX = 4  # x = x, y, v, yaw
