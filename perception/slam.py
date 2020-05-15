@@ -4,16 +4,16 @@ from perception.localisation import find_nearest_cone
 
 
 class SLAM:
-    def __init__(self, env, noisy=False):
+    def __init__(self, env, noise=False):
         """
         SLAM extracts the raw environment state and gives state which conforms to the Perception team structure
 
         Args:
             env (Environment): Store reference to environment for easy access.
-            noisy (bool, optional): If True, the returned state in step() will be augmented with noise.
+            noise (bool, optional): If True, the returned state in step() will be augmented with noise.
         """
         self.env = env
-        self.noisy = noisy
+        self.noise = noise
 
         # Left and right indexes refer to the current cone index. That is, the current position of the car
         # in terms of the index within the cones list.
@@ -40,7 +40,7 @@ class SLAM:
         right_cone_positions = self.env.right_cones_positions
 
         # Noise augmentation
-        if self.noisy is True:
+        if self.noise is True:
             # If we want some noise, set the number of searchable cones within [min_search, max_search], inclusive
             # at end points (randint already includes both end points)
             searchable_size = randint(self.min_searchable_size, self.max_searchable_size)
