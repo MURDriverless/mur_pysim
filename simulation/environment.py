@@ -2,7 +2,6 @@ import numpy as np
 
 import gym
 from gym import spaces
-from gym.envs.box2d.car_dynamics import Car
 from gym.utils import seeding, EzPickle
 from gym.envs.classic_control import rendering
 
@@ -18,7 +17,8 @@ from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
-from simulation.utils.state_transformer import StateTransformer
+from simulation.utils.state import State
+from simulation.car_dynamics import Car
 
 
 class Environment(gym.Env, EzPickle):
@@ -69,6 +69,7 @@ class Environment(gym.Env, EzPickle):
             car.steer(-action[0])
             car.gas(action[1])
             car.brake(action[2])
+
         car.step(1.0 / FPS)
         world.Step(1.0 / FPS, 6 * 30, 2 * 30)
         # Update elapsed time
@@ -94,15 +95,14 @@ class Environment(gym.Env, EzPickle):
             self.done = True
             step_reward -= 100
 
-        self.state = StateTransformer.transform(self)
+        self.state.update(self)
 
-        return self.state, step_reward, self.done, {}
+        return self.state.info, step_reward, self.done, {}
 
     def reset(self):
         self._destroy()
         self.time = -1.0
         self.tile_visited_count = 0
-        self.state = None
         self.done = False
         self.reward = 0.0
         self.prev_reward = 0.0
@@ -127,6 +127,7 @@ class Environment(gym.Env, EzPickle):
         init_x, init_y = self.track_tiles[0].position
 
         self.car = Car(self.world, init_angle=init_angle, init_x=init_x, init_y=init_y)
+        self.state = State(self)
 
         return self.step(None)[0]
 
