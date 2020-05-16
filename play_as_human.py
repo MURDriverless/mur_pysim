@@ -6,29 +6,27 @@ restart = None
 
 
 def play_as_human():
-    a = np.array([0.0, 0.0, 0.0])
+    action = np.array([0.0, 0.0])
 
     def key_press(k, mod):
         global restart
         if k == 0xff0d: restart = True
-        if k == key.LEFT:  a[0] = -1.0
-        if k == key.RIGHT: a[0] = +1.0
-        if k == key.UP:    a[1] = +1.0
-        if k == key.DOWN:  a[2] = +0.8  # set 1.0 for wheels to block to zero rotation
+        if k == key.LEFT:  action[1] = -1.0
+        if k == key.RIGHT: action[1] = +1.0
+        if k == key.UP:    action[0] = +1.0
+        if k == key.DOWN:  action[0] = -0.8  # set 1.0 for wheels to block to zero rotation
 
     def key_release(k, mod):
-        if k == key.LEFT and a[0] == -1.0: a[0] = 0
-        if k == key.RIGHT and a[0] == +1.0: a[0] = 0
-        if k == key.UP:    a[1] = 0
-        if k == key.DOWN:  a[2] = 0
+        if k == key.LEFT and action[1] == -1.0: action[1] = 0
+        if k == key.RIGHT and action[1] == +1.0: action[1] = 0
+        if k == key.UP:    action[0] = 0
+        if k == key.DOWN:  action[0] = 0
 
     env = Environment()
-    # env.reset()
+    env.reset()
     env.render()
     env.viewer.window.on_key_press = key_press
     env.viewer.window.on_key_release = key_release
-
-    action = (0, 0, 0)
 
     isopen = True
 
@@ -38,10 +36,10 @@ def play_as_human():
         steps = 0
         restart = False
         while True:
-            s, r, done, info = env.step(a)
+            s, r, done, info = env.step(action)
             total_reward += r
             if steps % 200 == 0 or done:
-                print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+                print("\naction " + str(["{:+0.2f}".format(x) for x in action]))
                 print("step {} total_reward {:+0.2f}".format(steps, total_reward))
             steps += 1
             isopen = env.render()

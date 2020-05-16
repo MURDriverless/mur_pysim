@@ -1,7 +1,7 @@
 from Box2D import *
 from pyglet import gl
 from simulation.parameters import GROUND_COLOUR
-from simulation.constants import GROUND_TYPE
+from simulation.type_names import GROUND_TYPE
 
 
 class Ground:

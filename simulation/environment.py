@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 import gym
@@ -11,14 +12,14 @@ from Box2D import b2World
 import pyglet
 from pyglet import gl
 
-from simulation.parameters import FPS, PLAYFIELD, STATE_W, STATE_H, WINDOW_W, WINDOW_H
+from perception.slam import SLAM
+from simulation.track_loader import load_track
+from simulation.parameters import FPS, PLAYFIELD, WINDOW_W, WINDOW_H
 from simulation.contact_listener import ContactListener
-from simulation.track_coordinates_builder import TrackCoordinatesBuilder
 from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
-from simulation.utils.state_transformer import StateTransformer
 
 
 class Environment(gym.Env, EzPickle):
@@ -30,15 +31,29 @@ class Environment(gym.Env, EzPickle):
         self.np_random = None
         self.seed()
 
-        # Box2D variables
-        self.time = -1.0  # Set time to -1.0 to indicate that models is not ready yet
-        self.car = None
-        self.contact_listener = ContactListener(self)
+        # Simulation entities
+        self.contact_listener = ContactListener(env=self)
+        self.slam = SLAM(env=self, noise=False)
+
+        # Track data
+        # Load left and right cone positions
+        self.left_cone_positions, self.right_cone_positions = load_track("fsg_alex_cones.txt")
+
+        # Track objects
         self.world = b2World((0, 0), contactListener=self.contact_listener)
         self.ground = None
-        self.track_tiles_coordinates = None    # For easy access in StateTransformer
+        self.left_cones = []
+        self.right_cones = []
         self.track_tiles = []
-        self.cones = []
+        self.car = None
+
+        # Simulation data
+        # Note that we do not have self.state and self.done .
+        # The rationale is that `state` and `done` do not actually need to be stored in memory. Hence,
+        # we can just return these data from function calls without committing to memory.
+        self.time = -1.0  # Set time to -1.0 to indicate that the models are not ready yet
+        self.reward = 0.0
+        self.previous_reward = 0.0
         self.tile_visited_count = 0
 
         # PyGLet variables
@@ -48,27 +63,50 @@ class Environment(gym.Env, EzPickle):
         self.score_label = None
         self.transform = None
 
-        # RL-related variables
-        # action_space has the following structure (steer, gas, brake). -1, +1 is for left and right steering
-        self.state = None
-        self.done = False
-        self.action_space = spaces.Box(np.array([-1, 0, 0]), np.array([+1, +1, +1]), dtype=np.float32)
-        self.observation_space = spaces.Box(low=0, high=255, shape=(STATE_H, STATE_W, 3), dtype=np.uint8)
-        self.reward = 0.0
-        self.prev_reward = 0.0
+        # observation_space is left out as we are not using pixels for our state
+        self.action_space = spaces.Box(np.array([-1, -1]), np.array([+1, +1]), dtype=np.float32)
+        self.observation_space = None
 
     def step(self, action):
+        """
+        Performs one simulation step using action and returns the state of simulation
+
+        Args:
+            action (list): [throttle, steering]
+                - throttle (float): [-1, +1] -> -1 for max. braking, and +1 for max. acceleration
+                - steering (float): [-1, +1] -> -1 for left steering, and +1 for right steering
+
+        Returns:
+            tuple: (state, step_reward, done)
+                - state (tuple): state observed by SLAM in the following format
+                    (x, y, v, yaw, [list_of_left_cones_ahead], [list_of_right_cones_ahead]), where the number
+                    of cones listed ahead varies. The list of cones contains positions in the format [x_cone, y_cone]
+                - step_reward (float): reward for the action taken only during this step (can be negative for penalty)
+                - done (bool): whether the simulation has completed
+        """
         # Track previous reward before it gets updated
-        self.prev_reward = self.reward
+        self.previous_reward = self.reward
 
         car = self.car
         world = self.world
 
-        # Apply action
-        if action is not None:
-            car.steer(-action[0])
-            car.gas(action[1])
-            car.brake(action[2])
+        # Apply action if it is not empty
+        if action is not None and len(action) > 0:
+            throttle = action[0]
+            steering = action[1]
+            # Constrain inputs
+            if throttle >= 1.0:
+                throttle = 1.0
+            elif throttle <= -1.0:
+                throttle = -1.0
+            if steering >= 1.0:
+                steering = 1.0
+            elif steering <= -1.0:
+                steering = -1.0
+            car.gas(throttle if throttle > 0 else 0)
+            car.brake(throttle if throttle < 0 else 0)
+            car.steer(-steering)
+
         car.step(1.0 / FPS)
         world.Step(1.0 / FPS, 6 * 30, 2 * 30)
         # Update elapsed time
@@ -82,53 +120,51 @@ class Environment(gym.Env, EzPickle):
         # Penalty for stopping and wasting time
         self.reward -= 0.1
         # Compute step reward and update previous reward
-        step_reward += self.reward - self.prev_reward  # Current recorded reward minus previous reward
+        step_reward += self.reward - self.previous_reward  # Current recorded reward minus previous reward
+
+        # Determine if done
+        done = False
 
         # Check if done
         if self.tile_visited_count == len(self.track_tiles):
-            self.done = True
+            done = True
 
         # Penalise further and terminate if car is out of bounds
         x, y = car.hull.position
         if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
-            self.done = True
+            done = True
             step_reward -= 100
 
-        self.state = StateTransformer.transform(self)
+        state = self.slam.step()
 
-        return self.state, step_reward, self.done, {}
+        return state, step_reward, done, {}
 
     def reset(self):
-        self._destroy()
-        self.time = -1.0
-        self.tile_visited_count = 0
-        self.state = None
-        self.done = False
+        self._destroy_objects()
+        self.time = -1.0  # Set time to -1.0 to indicate that the models are not ready yet
         self.reward = 0.0
-        self.prev_reward = 0.0
+        self.previous_reward = 0.0
+        self.tile_visited_count = 0
         
         # Build ground
         self.ground = Ground(self.world, PLAYFIELD, PLAYFIELD)
 
+        # Build left and right cones
+        self.left_cones = [Cone(world=self.world, position=(cone[0], cone[1])) for cone in self.left_cone_positions]
+        self.right_cones = [Cone(world=self.world, position=(cone[0], cone[1])) for cone in self.right_cone_positions]
+
         # Build track tiles
-        self.track_tiles_coordinates = TrackCoordinatesBuilder.load_track(self)
-        self.track_tiles = [TrackTile(self.world, self.track_tiles_coordinates[i], self.track_tiles_coordinates[i - 1])
-                            for i, element in enumerate(self.track_tiles_coordinates)]
-        # Build cones
-        cones_coordinates = []
-        for i in range(0, len(self.track_tiles)):
-            sensor_vertices = self.track_tiles[i].b2Data.fixtures[0].shape.vertices
-            for j in range(0, len(sensor_vertices)):
-                cones_coordinates.append(sensor_vertices[j])
-        self.cones = [Cone(world=self.world, position=(cone_coordinate[0], cone_coordinate[1]))
-                      for cone_coordinate in cones_coordinates]
+        # Assume that the number of left and right cones are equal
+        # Build track tiles from 0 to N-1, where N is the total number of cones.
+        self.track_tiles = [TrackTile(self.world, self.left_cone_positions[i], self.right_cone_positions[i],
+                                      self.left_cone_positions[i+1], self.right_cone_positions[i+1])
+                            for i in range(len(self.left_cone_positions)-1)]
 
-        init_angle = 0
-        init_x, init_y = self.track_tiles[0].position
-
-        self.car = Car(self.world, init_angle=init_angle, init_x=init_x, init_y=init_y)
-
-        return self.step(None)[0]
+        # For the track fsg_alex_cones.txt, we need to turn the car by -90 degrees to align it in the correct direction
+        init_angle = math.radians(-90)
+        init_x, init_y = self.track_tiles[-1].position
+        self.car = Car(self.world, init_angle, init_x, init_y)
+        return self.step([])
 
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
@@ -191,24 +227,29 @@ class Environment(gym.Env, EzPickle):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _destroy(self):
-        if not self.track_tiles:
-            return
-        self.world.DestroyBody(self.ground.b2Data)
-        for track_tile in self.track_tiles:
-            self.world.DestroyBody(track_tile.b2Data)
+    def _destroy_objects(self):
+        # Destroy track objects
+        if self.ground:
+            self.world.DestroyBody(self.ground.b2Data)
+        if self.track_tiles:
+            [self.world.DestroyBody(tile.b2Data) for tile in self.track_tiles]
+        if self.left_cones:
+            [self.world.DestroyBody(cone.b2Data) for cone in self.left_cones]
+        if self.right_cones:
+            [self.world.DestroyBody(cone.b2Data) for cone in self.right_cones]
+        if self.car:
+            self.car.destroy()
+        # Re-initialise the track objects
+        self.ground = None
         self.track_tiles = []
-        self.car.destroy()
+        self.left_cones = []
+        self.right_cones = []
+        self.car = None
 
     def render_world(self):
         gl.glBegin(gl.GL_QUADS)
-
         self.ground.render()
-
-        for tile in self.track_tiles:
-            tile.render()
-
-        for cone in self.cones:
-            cone.render()
-
+        [tile.render() for tile in self.track_tiles]
+        [cone.render() for cone in self.left_cones]
+        [cone.render() for cone in self.right_cones]
         gl.glEnd()

@@ -1,6 +1,6 @@
 from pathlib import Path
 import csv
-import numpy as np
+from definitions import PROJECT_ROOT
 
 
 def load_track(file_name):
@@ -13,13 +13,14 @@ def load_track(file_name):
             "../tracks/fsg_alex_cones.txt". Instead, just use "fsg_alex_cones.txt"
 
     Returns:
-        np.ndarray: [left_cone_positions, right_cone_positions]
+        list: [left_cone_positions, right_cone_positions]
+            - left and right cone positions are list of [x_cone, y_cone] respectively
     """
     left_cone_positions = []
     right_cone_positions = []
 
     try:
-        file_path = Path("../tracks").joinpath(file_name)
+        file_path = Path(PROJECT_ROOT).joinpath("./tracks", file_name)
 
         with open(file_path, 'r') as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=',')
@@ -27,8 +28,8 @@ def load_track(file_name):
             next(csv_reader)
             # Append subsequent lines to data
             for row in csv_reader:
-                left_cone_positions.append(np.array([float(row[0]), float(row[1])]))
-                right_cone_positions.append(np.array([float(row[2]), float(row[3])]))
+                left_cone_positions.append([float(row[0]), float(row[1])])
+                right_cone_positions.append([float(row[2]), float(row[3])])
 
         return left_cone_positions, right_cone_positions
 

@@ -1,7 +1,7 @@
 from Box2D import *
 from pyglet import gl
 from simulation.parameters import CONE_RADIUS, CONE_COLOUR
-from simulation.constants import CONE_TYPE
+from simulation.type_names import CONE_TYPE
 
 
 class Cone:

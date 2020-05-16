@@ -1,15 +1,15 @@
-import math
 from Box2D import *
 from pyglet import gl
-from simulation.parameters import TRACK_WIDTH, TRACK_TILE_COLOUR
-from simulation.constants import TRACK_TILE_TYPE
+from simulation.parameters import TRACK_TILE_COLOUR
+from simulation.type_names import TRACK_TILE_TYPE
 
 
 class TrackTile:
-    def __init__(self, world, current_node, previous_node):
-        # # Obtain required data
-        position = (current_node[2], current_node[3])   # Don't pass into bodyDef(), otherwise contact won't trigger
-        vertices = self._get_vertices(current_node, previous_node)
+    def __init__(self, world, current_left, current_right, next_left, next_right):
+        vertices = (current_left, next_left, next_right, current_right)
+
+        # Don't pass position into bodyDef(), otherwise contact won't trigger
+        position = self.get_position(current_left, current_right, next_left, next_right)
 
         # 1. Define body
         bodyDef = b2BodyDef()
@@ -47,20 +47,12 @@ class TrackTile:
             gl.glVertex3f(vertex[0], vertex[1], 0)
 
     @staticmethod
-    def _get_vertices(current_node, previous_node):
-        # Unpack values
-        alpha_current, beta_current, x_current, y_current = current_node
-        alpha_previous, beta_previous, x_previous, y_previous = previous_node
-
-        # Compute vertices
-        top_left = (x_current - TRACK_WIDTH * math.cos(beta_current),
-                    y_current - TRACK_WIDTH * math.sin(beta_current))
-        top_right = (x_current + TRACK_WIDTH * math.cos(beta_current),
-                     y_current + TRACK_WIDTH * math.sin(beta_current))
-        bottom_right = (x_previous + TRACK_WIDTH * math.cos(beta_previous),
-                        y_previous + TRACK_WIDTH * math.sin(beta_previous))
-        bottom_left = (x_previous - TRACK_WIDTH * math.cos(beta_previous),
-                       y_previous - TRACK_WIDTH * math.sin(beta_previous))
-
-        return top_left, top_right, bottom_right, bottom_left
+    def get_position(current_left, current_right, next_left, next_right):
+        left_middle_x = (current_left[0] + next_left[0])
+        right_middle_x = (current_right[0] + next_right[0])
+        left_middle_y = (current_left[1] + next_left[1])
+        right_middle_y = (current_right[1] + next_right[1])
+        tile_x = (left_middle_x + right_middle_x) / 2.0
+        tile_y = (left_middle_y + right_middle_y) / 2.0
+        return tile_x, tile_y
 

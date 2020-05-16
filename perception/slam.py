@@ -1,5 +1,5 @@
+import math
 from random import randint
-from simulation.environment import Environment
 from perception.localisation import find_nearest_cone
 
 
@@ -9,7 +9,7 @@ class SLAM:
         SLAM extracts the raw environment state and gives state which conforms to the Perception team structure
 
         Args:
-            env (Environment): Store reference to environment for easy access.
+            env (simulation.environment.Environment): Store reference to environment for easy access.
             noise (bool, optional): If True, the returned state in step() will be augmented with noise.
         """
         self.env = env
@@ -36,8 +36,8 @@ class SLAM:
         # Initialise variables
         car = self.env.car
         car_position = car.hull.position
-        left_cone_positions = self.env.left_cones_positions
-        right_cone_positions = self.env.right_cones_positions
+        left_cone_positions = self.env.left_cone_positions
+        right_cone_positions = self.env.right_cone_positions
 
         # Noise augmentation
         if self.noise is True:
@@ -51,7 +51,7 @@ class SLAM:
         # Get x, y, v, yaw
         x = car_position[0]
         y = car_position[1]
-        v = car.hull.linearVelocity
+        v = math.sqrt(car.hull.linearVelocity[0] ** 2 + car.hull.linearVelocity[1] ** 2)
         yaw = car.hull.angle
 
         # Get next cones
