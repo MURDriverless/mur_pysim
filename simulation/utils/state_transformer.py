@@ -1,3 +1,5 @@
+import numpy as np
+
 class StateTransformer:
     @staticmethod
     def transform(env):
@@ -17,5 +19,6 @@ class StateTransformer:
 
         return {
             'x': x,
-            'y': y
+            'y': y,
+            'velocity': np.sqrt(car.LinearVelocity[0] ** 2 + car.LinearVelocity[1] ** 2)
         }
