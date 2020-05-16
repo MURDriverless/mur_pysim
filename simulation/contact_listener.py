@@ -60,10 +60,6 @@ class ContactListener(b2ContactListener):
 
             # If car has contacted a cone, we need to penalise it and terminate the simulation
             # early as we have failed
-            # TODO: Activate penalty for hitting cones
-            # if cone is not None:
-            #     # Provide penalty relative to the total distance travelled:
-            #     # The more tiles the car has visited, the lower the penalty will be
-            #     penalty = 1000 * (1 - float(self.env.tile_visited_count / len(self.env.track_tiles)))
-            #     # 1. Penalise agent
-            #     self.env.reward -= penalty
+            if cone is not None:
+                penalty = 10
+                self.env.reward -= penalty

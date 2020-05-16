@@ -3,7 +3,6 @@ import numpy as np
 
 import gym
 from gym import spaces
-from gym.envs.box2d.car_dynamics import Car
 from gym.utils import seeding, EzPickle
 from gym.envs.classic_control import rendering
 
@@ -14,8 +13,9 @@ from pyglet import gl
 
 from perception.slam import SLAM
 from simulation.track_loader import load_track
-from simulation.parameters import FPS, PLAYFIELD, WINDOW_W, WINDOW_H
+from simulation.parameters import FPS, PLAYFIELD, WINDOW_W, WINDOW_H, LEFT_CONE_COLOUR, RIGHT_CONE_COLOUR
 from simulation.contact_listener import ContactListener
+from simulation.models.car import Car
 from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
@@ -150,8 +150,9 @@ class Environment(gym.Env, EzPickle):
         self.ground = Ground(self.world, PLAYFIELD, PLAYFIELD)
 
         # Build left and right cones
-        self.left_cones = [Cone(world=self.world, position=(cone[0], cone[1])) for cone in self.left_cone_positions]
-        self.right_cones = [Cone(world=self.world, position=(cone[0], cone[1])) for cone in self.right_cone_positions]
+        self.left_cones = [Cone(self.world, (cone[0], cone[1]), LEFT_CONE_COLOUR) for cone in self.left_cone_positions]
+        self.right_cones = [Cone(self.world, (cone[0], cone[1]), RIGHT_CONE_COLOUR) for cone in
+                            self.right_cone_positions]
 
         # Build track tiles
         # Assume that the number of left and right cones are equal

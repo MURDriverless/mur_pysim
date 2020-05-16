@@ -1,11 +1,11 @@
 from Box2D import *
 from pyglet import gl
-from simulation.parameters import CONE_RADIUS, CONE_COLOUR
+from simulation.parameters import CONE_RADIUS
 from simulation.type_names import CONE_TYPE
 
 
 class Cone:
-    def __init__(self, world, position):
+    def __init__(self, world, position, colour):
         # # Obtain required data
         vertices = self._get_vertices(position, CONE_RADIUS)
 
@@ -30,7 +30,7 @@ class Cone:
         self.type = CONE_TYPE
         self.position = position
         self.b2Data = instance
-        self.colour = CONE_COLOUR
+        self.colour = colour
 
     def render(self):
         vertices = self.b2Data.fixtures[0].shape.vertices
