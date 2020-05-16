@@ -30,6 +30,7 @@ class State:
             "x_vel": car.hull.linearVelocity[0],
             "y_vel": car.hull.linearVelocity[1],
             "abs_vel": abs_vel,
-            "angular_vel": car.hull.angularVelocity
+            "angular_vel": car.hull.angularVelocity,
+            "steering_ang": car.wheels[0].joint.angle
         })
 
