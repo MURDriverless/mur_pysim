@@ -17,7 +17,7 @@ from simulation.models.ground import Ground
 from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
-from simulation.utils.state_transformer import StateTransformer
+from simulation.utils.state import State
 from simulation.dynamics.car_dynamics import Car
 
 
@@ -89,13 +89,13 @@ class Environment(gym.Env, EzPickle):
 
         # Penalise further and terminate if car is out of bounds
         x, y = car.hull.position
+
         if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
-            self.done = True
             step_reward -= 100
 
-        self.state = StateTransformer.transform(self)
+        state = self.state.update(self)
 
-        return self.state, step_reward, self.done, {}
+        return state
 
     def reset(self):
         self._destroy()
@@ -126,8 +126,9 @@ class Environment(gym.Env, EzPickle):
         init_x, init_y = self.track_tiles[0].position
 
         self.car = Car(self.world, init_angle=init_angle, init_x=init_x, init_y=init_y)
+        self.state = State(self)
 
-        return self.step(None)[0]
+        return np.array(tuple(self.state.info.values()))
 
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']

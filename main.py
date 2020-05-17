@@ -45,7 +45,7 @@ if __name__ == "__main__":
     """
 
     while isopen:
-        env.reset()
+        curr_state = env.reset()
         total_reward = 0.0
         steps = 0
         restart = False
@@ -53,28 +53,21 @@ if __name__ == "__main__":
         # Generate path
         c_splines = c_splines.get()
 
-        # Get initial state
-        initial_x, initial_y = env.car.hull.position
-        initial_states = np.array([initial_x, initial_y, 0, 0])
-
         # Initialise MPC
-        mpc = mpc.Controller(initial_states, c_splines)
+        mpc = mpc.Controller(curr_state, c_splines)
 
         # Set initial inputs to zero
         action = np.zeros(2)
 
         while True:
             # x, y position
-            x_pos, y_pos = env.car.hull.position
             # velocity
-            abs_velocity = env.car.velocity
             # steering angle THIS IS WRONG I THINK
-            sa = env.car.wheels[0].phase
             # state formatting
-            current_state = np.array([x_pos, y_pos, abs_velocity, sa])
             # MPC prescription and optimal action identification
-            action = mpc.iterate(current_state, sa)
+            action = mpc.iterate(curr_state)
             action = np.array([action[1], action[0], 0])
+            print(curr_state)
 
             # 0: acc/brake
             # 1: steering
@@ -83,13 +76,9 @@ if __name__ == "__main__":
                 action[2] = -action[1]
                 action[1] = 0
 
-
-            s, r, done, info = env.step(action)
-            total_reward += r
+            curr_state = env.step(action)
             steps += 1
 
             env.render()
-            if done or restart or isopen == False:
-                break
 
     env.close()

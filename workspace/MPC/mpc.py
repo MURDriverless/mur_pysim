@@ -66,14 +66,13 @@ class Controller:
         self.o_input = np.zeros(2, dtype=np.float32)
         self.spline_dist = self._calc_spline_dist()
 
-    def iterate(self, curr_state, delta):
+    def iterate(self, curr_state):
         if self.steps == 1:
             ref_states, ref_inputs = self._calc_ref_traj(self.i_states)
             predict_states = self._predict(self.i_states)
             o_inputs, o_states = self._compute(ref_states, ref_inputs, predict_states, curr_state)
 
         else:
-            curr_state[3] = self._calc_yaw(curr_state, delta)
             ref_states, ref_inputs = self._calc_ref_traj(curr_state)
             predict_states = self._predict(curr_state)
             o_inputs, o_states = self._compute(ref_states, ref_inputs, predict_states, curr_state)
@@ -87,11 +86,10 @@ class Controller:
 
         return np.sqrt(x + y)
 
-    @staticmethod
-    def _calc_yaw(curr_state, delta):
-        return (curr_state[2] * np.tan(delta)) / CAR_LENGTH
-
     def _calc_ref_traj(self, curr_state):
+        """
+            Reference traj not outputting correctly
+        """
         # 0.004 seconds
         ref_state = np.zeros((NUM_STATE_VARS, TIME_HORIZON + 1))
         ref_input = np.zeros((NUM_OUTPUTS, TIME_HORIZON + 1))
@@ -123,6 +121,9 @@ class Controller:
                 ref_state[2, t] = speed_profile[course_len - 1]
                 ref_state[3, t] = self.c_splines[2, course_len - 1]
                 ref_input[0, t] = 0
+
+        print(ref_state[:, 0])
+
 
         return ref_state, ref_input
 
