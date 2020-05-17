@@ -18,7 +18,7 @@ from simulation.models.track_tile import TrackTile
 from simulation.models.cone import Cone
 from simulation.utils.rendering import follower_view_transform, get_viewport_size, render_indicators
 from simulation.utils.state import State
-from simulation.dynamics.car_dynamics import Car
+from simulation.car_dynamics import Car
 
 
 class Environment(gym.Env, EzPickle):
@@ -58,6 +58,9 @@ class Environment(gym.Env, EzPickle):
         self.prev_reward = 0.0
 
     def step(self, action):
+        # Track previous reward before it gets updated
+        self.prev_reward = self.reward
+
         car = self.car
         world = self.world
 
@@ -79,7 +82,6 @@ class Environment(gym.Env, EzPickle):
         step_reward = 0
         # Penalty for stopping and wasting time
         self.reward -= 0.1
-        self.prev_reward = self.reward
         # Compute step reward and update previous reward
         step_reward += self.reward - self.prev_reward  # Current recorded reward minus previous reward
 
@@ -89,19 +91,17 @@ class Environment(gym.Env, EzPickle):
 
         # Penalise further and terminate if car is out of bounds
         x, y = car.hull.position
-
         if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
             step_reward -= 100
 
-        state = self.state.update(self)
+        self.state.update(self)
 
-        return state
+        return self.state.info, step_reward, self.done, {}
 
     def reset(self):
         self._destroy()
         self.time = -1.0
         self.tile_visited_count = 0
-        self.state = None
         self.done = False
         self.reward = 0.0
         self.prev_reward = 0.0
@@ -128,7 +128,7 @@ class Environment(gym.Env, EzPickle):
         self.car = Car(self.world, init_angle=init_angle, init_x=init_x, init_y=init_y)
         self.state = State(self)
 
-        return np.array(tuple(self.state.info.values()))
+        return self.step(None)[0]
 
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']

@@ -167,8 +167,8 @@ class Controller:
 
         constraints += [states[:, 0] == curr_states] # first state is curr state
         constraints += [states[2, :] >= 0] # velocity >= 0
-        constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
-        constraints += [cp.abs(inputs[1, :]) <= 2] # max steer
+        constraints += [cp.abs(inputs[0, :]) <= MAX_ACC] # max acc
+        constraints += [cp.abs(inputs[1, :]) <= MAX_STEER] # max steer
 
         for t in range(TIME_HORIZON):
             cost += cp.quad_form(inputs[:, t], I_COST)
@@ -187,7 +187,6 @@ class Controller:
                 constraints += [cp.abs(inputs[1, t + 1] - inputs[1, t]) <= MAX_DSTEER * DT]
 
         cost += cp.quad_form(ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
-
 
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver=cp.ECOS, verbose=self.verbose)

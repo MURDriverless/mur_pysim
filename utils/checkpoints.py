@@ -11,14 +11,13 @@ class Checkpoint:
 
     def __init__(self, track_coordinates: dict):
         self.track_coordinates = track_coordinates
-        self.obj_pos = None
 
-    def check(self, car_pos: (int, int), threshold=5) -> tuple:
+    def check(self, car_pos: (int, int), threshold=5) -> int:
         """
             Calculates the Euclidean distance from the car's current position to the next checkpoint
             If this distance is less than the threshold, the new checkpoint will is designated.
         """
-        self.obj_pos = self.track_coordinates.get(self.current_index)
+        obj_pos = self.track_coordinates.get(self.current_index)
 
         x = np.array([car_pos[0], obj_pos[0]])
         y = np.array([car_pos[1], obj_pos[1]])

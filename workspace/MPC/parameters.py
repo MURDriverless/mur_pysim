@@ -1,6 +1,6 @@
 import numpy as np
 
-TARGET_SPEED = 20.0
+TARGET_SPEED = 15
 N_IDX_SEARCH = 15
 
 WHEELPOS = [
@@ -24,11 +24,13 @@ NUM_STATE_VARS = 4
 NUM_OUTPUTS = 2
 TIME_HORIZON = 20 # steps
 
-MAX_DSTEER = np.radians(5)
+MAX_ACC = 0.2
+MAX_DSTEER = np.radians(15)
+MAX_STEER = 0.42
 
-I_COST = np.diag([0.01, 0.5])
-I_COST_DIFF = np.diag([0.01, 0.9])
-S_COST = np.diag([0.75, 0.75, 0.05, 0.05])
+I_COST = np.diag([0.01, 0.01])
+I_COST_DIFF = np.diag([0.01, 1.0])
+S_COST = np.diag([1.0, 1.0, 0.5, 0.5])
 S_FINAL = S_COST
 
 
