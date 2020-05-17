@@ -62,12 +62,10 @@ if __name__ == "__main__":
         while True:
             # x, y position
             # velocity
-            # steering angle THIS IS WRONG I THINK
             # state formatting
             # MPC prescription and optimal action identification
             action = mpc.iterate(curr_state)
             action = np.array([action[1], action[0], 0])
-            print(curr_state)
 
             # 0: acc/brake
             # 1: steering

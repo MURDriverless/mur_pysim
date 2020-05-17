@@ -122,9 +122,6 @@ class Controller:
                 ref_state[3, t] = self.c_splines[2, course_len - 1]
                 ref_input[0, t] = 0
 
-        print(ref_state[:, 0])
-
-
         return ref_state, ref_input
 
     def _calc_nearest_idx(self, curr_state):
@@ -168,6 +165,11 @@ class Controller:
         cost = 0.0
         constraints = []
 
+        constraints += [states[:, 0] == curr_states] # first state is curr state
+        constraints += [states[2, :] >= 0] # velocity >= 0
+        constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
+        constraints += [cp.abs(inputs[1, :]) <= 2] # max steer
+
         for t in range(TIME_HORIZON):
             cost += cp.quad_form(inputs[:, t], I_COST)
 
@@ -186,10 +188,7 @@ class Controller:
 
         cost += cp.quad_form(ref_states[:, TIME_HORIZON] - states[:, TIME_HORIZON], S_FINAL)
 
-        constraints += [states[:, 0] == curr_states] # first state is curr state
-        constraints += [states[2, :] >= 0] # velocity >= 0
-        constraints += [cp.abs(inputs[0, :]) <= 1] # max acc
-        constraints += [cp.abs(inputs[1, :]) <= 2] # max steer
+
         problem = cp.Problem(cp.Minimize(cost), constraints)
         problem.solve(solver=cp.ECOS, verbose=self.verbose)
 

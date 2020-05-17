@@ -191,7 +191,7 @@ def get():
     cur_path = Path(__file__)
     path = cur_path.parents[1].joinpath('paths',
                                         'track_coordinates.txt')
-    ds = 0.1  # [m] distance of each intepolated points
+    ds = 1  # [m] distance of each intepolated points
     with open(path, 'r') as file:
         temp = eval(file.read())
 
@@ -210,7 +210,7 @@ def get():
         ix, iy = sp.calc_position(i_s)
         rx.append(ix)
         ry.append(iy)
-        ryaw.append(sp.calc_yaw(i_s))
+        ryaw.append(np.radians(sp.calc_yaw(i_s)))
 
     return np.array([rx, ry, ryaw])
 
