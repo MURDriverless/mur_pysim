@@ -33,7 +33,7 @@ class Environment(gym.Env, EzPickle):
 
         # Simulation entities
         self.contact_listener = ContactListener(env=self)
-        self.slam = SLAM(env=self, noise=False)
+        self.slam = SLAM(noise=False)
 
         # Track data
         # Load left and right cone positions
@@ -135,7 +135,8 @@ class Environment(gym.Env, EzPickle):
             done = True
             step_reward -= 100
 
-        state = self.slam.step()
+        state = self.slam.update(car.hull.position[0], car.hull.position[1], car.hull.linearVelocity, car.hull.angle,
+                                 self.left_cone_positions, self.right_cone_positions)
 
         return state, step_reward, done, {}
 

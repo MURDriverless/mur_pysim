@@ -1,13 +1,13 @@
 import math
-import numpy as np
 
 
-def find_nearest_cone(car_position, cone_positions, current_cone_index, searchable_size):
+def find_nearest_cone(x, y, cone_positions, current_cone_index, searchable_size):
     """
     Calculates the index of the nearest next cone from the car (next_cone_index)
 
     Args:
-        car_position (array_like): x and y position of the car
+        x (float): horizontal position of the car in stationary frame
+        y (float): vertical position of the car in stationary frame
         cone_positions (array_like): position of known cones in the format [[x0, y0], [xN, yN]]
         current_cone_index (int): the starting index of search
         searchable_size (int): the maximum number of cones after current_cone_index which are included in search
@@ -21,8 +21,8 @@ def find_nearest_cone(car_position, cone_positions, current_cone_index, searchab
     searchable_cones = cyclic_fetch_elements_in_array(cone_positions, current_cone_index, searchable_size)
 
     # Calculate difference in x and y to compute distance from one cone to next
-    dx = [car_position[0] - cone[0] for cone in searchable_cones]
-    dy = [car_position[1] - cone[1] for cone in searchable_cones]
+    dx = [x - cone[0] for cone in searchable_cones]
+    dy = [y - cone[1] for cone in searchable_cones]
 
     # Build a list of distances and find the minimum squared distance
     squared_distances = [idx ** 2 + idy ** 2 for (idx, idy) in zip(dx, dy)]
