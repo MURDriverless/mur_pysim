@@ -1,20 +1,20 @@
 from abc import ABCMeta, abstractmethod
 
 
-class PathFollowerContract(metaclass=ABCMeta):
+class PathFollowerInterface(metaclass=ABCMeta):
     @abstractmethod
     def move(self, states, reference=None):
         """
-        Issues actuation commands to motor control.
+        Issues actuation commands to motor control to bring the current state closer to the reference states
 
         Args:
             states (numpy.ndarray): Current states observed by Perception.
-            reference (numpy.ndarray, optional): An array of of the same size as states.
-                Its purpose is to correct the current state using the reference states,
-                so `reference` needs to share the same structure as `states`. This is
-                typically passed on from Path Planner. If there is a None entry, the
-                reference for that state will be the same as the state, such that there
-                is supposedly 0 error.
+            reference (numpy.ndarray, optional): 2D matrix of size (NX, N), where
+                NX = number of states used in the model, and
+                N = prediction horizon length.
+                Remember to check the PathPlanner used to see if any of reference
+                is intentionally set to 0 to avoid tracking that reference. If that is the
+                case, remember to ignore the state reference in PathFollower.
 
         Returns:
             numpy.ndarray: Actuation commands to be sent to EMC (input to the motor plant)
@@ -24,10 +24,7 @@ class PathFollowerContract(metaclass=ABCMeta):
                 - steering angle rate: unsure of the constraints for now, will update later.
 
         Notes:
-            1. `states` will contain an array of cone positions, and in this particular case,
-            the `reference` should be set to None, and developers are encouraged to explain
-            why they are only accessing the first n elements of the reference, because
-            the last one is related to the cones.
+            1. Check perception/slam.py to see the structure of `states`.
             2. We are using numpy.ndarray as the standard format for array instead of Python's
             in-built list. This is because the size of ndarray is static after creation, so it
             is supposedly faster at read and write processes. Python's list on the other hand,
