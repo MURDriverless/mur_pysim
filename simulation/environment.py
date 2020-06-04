@@ -136,7 +136,7 @@ class Environment(gym.Env, EzPickle):
             step_reward -= 100
 
         state = self.slam.update(car.hull.position[0], car.hull.position[1], car.hull.linearVelocity, car.hull.angle,
-                                 self.left_cone_positions, self.right_cone_positions)
+                                 car.angularVelocity, self.left_cone_positions, self.right_cone_positions)
 
         return state, step_reward, done, {}
 
