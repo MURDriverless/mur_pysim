@@ -104,7 +104,7 @@ class Environment(gym.Env, EzPickle):
             elif steering <= -1.0:
                 steering = -1.0
             car.gas(throttle if throttle > 0 else 0)
-            car.brake(throttle if throttle < 0 else 0)
+            car.brake(-throttle if throttle < 0 else 0)
             car.steer(-steering)
 
         car.step(1.0 / FPS)
@@ -136,7 +136,7 @@ class Environment(gym.Env, EzPickle):
             step_reward -= 100
 
         state = self.slam.update(car.hull.position[0], car.hull.position[1], car.hull.linearVelocity, car.hull.angle,
-                                 car.angularVelocity, self.left_cone_positions, self.right_cone_positions)
+                                 car.hull.angularVelocity, self.left_cone_positions, self.right_cone_positions)
 
         return state, step_reward, done, {}
 
