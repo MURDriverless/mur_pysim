@@ -37,6 +37,43 @@ def find_nearest_cone(x, y, cone_positions, current_cone_index, searchable_size)
     next_cone_distance = math.sqrt(min_squared_dist)
     return next_cone_index, next_cone_distance
 
+def find_nearest_front_cone(x, y, yaw, cone_positions, current_cone_index):
+    """
+    Calculates the index of the nearest next cone in front of the car (next_cone_index)
+
+    Args:
+        x (float): horizontal position of the car in stationary frame
+        y (float): vertical position of the car in stationary frame
+        cone_positions (array_like): position of known cones in the format [[x0, y0], [xN, yN]]
+        current_cone_index (int): the starting index of search
+        searchable_size (int): the maximum number of cones after current_cone_index which are included in search
+
+    Returns:
+        tuple: next_cone_index, next_cone_distance
+            - next_cone_index (int): index of the nearest next cone from the car
+            - next_cone_distance (float): distance from the current car position to the next nearest cone
+    """
+    # Only search within the position_index up to searchable_size
+    searchable_cones = cone_positions
+
+    # Calculate difference in x and y to compute distance from one cone to next
+    dx = [cone[0] - x for cone in searchable_cones]
+    dy = [cone[1] - y for cone in searchable_cones]
+
+    # Calculate whether the cone is in front of the car
+    ox = math.cos(yaw+math.pi/2)
+    oy = math.sin(yaw+math.pi/2)
+
+    # Build a list of distances and find the minimum squared distance
+    squared_distances = [idx ** 2 + idy ** 2 if ox * idx + oy * idy > 0 else math.inf 
+                         for (idx, idy) in zip(dx, dy)]
+    min_squared_dist = min(squared_distances)
+
+    # Since we have built a list of distances, we can just get the next cone index by searching for
+    # the index of the minimum squared distance value.
+    next_cone_index = squared_distances.index(min_squared_dist)
+    next_cone_distance = math.sqrt(min_squared_dist)
+    return next_cone_index, next_cone_distance
 
 def cyclic_fetch_elements_in_array(array, start_index, searchable_size):
     """

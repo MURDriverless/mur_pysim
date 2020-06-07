@@ -135,7 +135,9 @@ class Environment(gym.Env, EzPickle):
             done = True
             step_reward -= 100
 
-        state = self.slam.update(car.hull.position[0], car.hull.position[1], car.hull.linearVelocity, car.hull.angle,
+        # bound yaw by taking the modulo 2pi
+        yaw = car.hull.angle % (2 * math.pi)
+        state = self.slam.update(car.hull.position[0], car.hull.position[1], car.hull.linearVelocity, yaw,
                                  car.hull.angularVelocity, self.left_cone_positions, self.right_cone_positions)
 
         return state, step_reward, done, {}
@@ -166,7 +168,7 @@ class Environment(gym.Env, EzPickle):
         init_angle = math.radians(-90)
         init_x, init_y = self.track_tiles[-1].position
         self.car = Car(self.world, init_angle, init_x, init_y)
-        return self.step([])
+        return self.step([])[0]
 
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
