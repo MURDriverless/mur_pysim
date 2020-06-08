@@ -2,27 +2,6 @@ from abc import ABCMeta, abstractmethod
 
 
 class VehicleModelInterface(metaclass=ABCMeta):
-    """
-    Concrete vehicle models should implement this interface to allow interchanging models easily in the controller
-    """
-    @classmethod
-    @abstractmethod
-    def get_NX(cls):
-        """"
-        Returns:
-            int, number of model states
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def get_NU(cls):
-        """
-        Returns:
-            int, number of model inputs
-        """
-        pass
-
     @classmethod
     @abstractmethod
     def continuous_model(cls, x, u):

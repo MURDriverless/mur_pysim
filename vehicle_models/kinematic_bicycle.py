@@ -4,17 +4,17 @@ from vehicle_models.interface import VehicleModelInterface
 
 
 class KinematicBicycleModel(VehicleModelInterface):
+    # Model information
     NX = 4      # 4 states: [x, y, v, yaw]
     NU = 2      # 2 inputs: [acceleration, delta (steering)]
     L = 2.5     # Length of vehicle from rear to front
-
-    @classmethod
-    def get_NX(cls):
-        return cls.NX
-
-    @classmethod
-    def get_NU(cls):
-        return cls.NU
+    # Constraints
+    MAX_STEER = np.deg2rad(45.0)  # maximum steering angle [rad]
+    MAX_DSTEER = np.deg2rad(30.0)  # maximum steering speed [rad/s]
+    MAX_SPEED = 55.0 / 3.6  # maximum speed [m/s]
+    MIN_SPEED = -20.0 / 3.6  # minimum speed [m/s]
+    MAX_ACCEL = 1.0  # maximum accel [m/ss]
+    MIN_ACCEL = -1.0  # maximum braking [m/ss]
 
     @classmethod
     def continuous_model(cls, x, u):
