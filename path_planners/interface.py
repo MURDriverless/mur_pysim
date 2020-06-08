@@ -5,17 +5,15 @@ class PathPlannerInterface(metaclass=ABCMeta):
     @abstractmethod
     def plan(self, states):
         """
-        Generates reference states along the prediction horizon
+        Generates reference positions along the prediction horizon
 
         Args:
             states (numpy.ndarray): Current states observed by Perception.
 
         Returns:
-            numpy.ndarray: 2D-matrix of size (NX, N), where
-                NX = number of states used in model and
-                N = prediction horizon length.
-                If some of the states do not have reference, just set it to 0 and in PathFollower,
-                we will set it manually to ignore that reference.
+            numpy.ndarray: 2D-matrix of size (2, N), where
+                1. The rows correspond to x and y coordinates in inertial frame
+                2. N = prediction horizon length
 
         Notes:
             1. For justification on using numpy.ndarray, see PathFollowerInterface
