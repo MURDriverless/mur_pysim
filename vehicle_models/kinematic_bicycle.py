@@ -71,7 +71,7 @@ class KinematicBicycleModel(VehicleModelInterface):
         """
         J_A = np.zeros((cls.NX, cls.NX))    # Jacobian of A, same size as linearised A
         J_B = np.zeros((cls.NX, cls.NU))    # Jacobian of B, same size as linearised B
-        J_C = np.zeros((cls.NX, 1))         # Collection of terms not in J_A and J_B, same size as feed-forward term C
+        J_C = np.zeros(cls.NX)         # Collection of terms not in J_A and J_B, same size as feed-forward term C
         L = cls.L
         v = xk_bar[2]
         yaw = xk_bar[3]

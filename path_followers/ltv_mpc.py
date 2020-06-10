@@ -15,20 +15,34 @@ class LTVMPCFollower(PathFollowerInterface):
         self.Ts = Ts
 
         # State, terminal state, input and input difference costs respectively
-        self.Q = np.diag([1.0, 1.0, 0.5, 0.5])
+        self.Q = np.diag([1.0, 1.0, 0, 0.5])
         self.P = self.Q
         self.R = np.diag([0.01, 0.01])
         self.Rd = np.diag([0.01, 1.0])
 
         # We store past optimal inputs for future linearisations.
-        self.pa = np.zeros(self.N)
+        self.pa = np.ones(self.N)
         self.pd = np.zeros(self.N)
+        self.x0 = np.zeros(model.NX)
+        self.xref = np.zeros((model.NX, self.N + 1))
 
-    def move(self, states, reference):
+    def move(self, state, reference):
+
+        x0 = self.x0
+        x0[0] = state[0]
+        x0[1] = state[1]
+        x0[2] = state[2]
+        x0[3] = state[3]
+
+        xref = self.xref
+        xref[0, :] = reference[0, :]
+        xref[1, :] = reference[1, :]
+        xref[3, :] = np.arctan2(xref[1, :], xref[2, :])
+
         # Predict equilibrium values for the future horizons
-        xbar = self.calculate_xbar(states, self.pa, self.pd)
+        xbar = self.calculate_xbar(x0, self.pa, self.pd)
         # Compute optimal inputs
-        oa, od = self.ltv_mpc_control(states, reference, xbar)
+        oa, od = self.ltv_mpc_control(x0, xref, xbar)
         # Update previous inputs for calculating xbar in the next iteration
         self.pa, self.pd = oa, od
         # Return result
@@ -110,8 +124,11 @@ class LTVMPCFollower(PathFollowerInterface):
             # Penalise tracking error
             cost += cvxpy.quad_form(xref[:, t] - x[:, t], self.Q)
             # Constrain next state to follow predictive model
-            A, B, C = model.discrete_jacobian(xbar, ubar, self.Ts)
+            A, B, C = model.discrete_jacobian(xbar[:, t], ubar, self.Ts)
             constraints += [x[:, t + 1] == A * x[:, t] + B * u[:, t] + C]
+
+            # Maximise velocity
+            cost += -x[2, t] * 0.1
 
             # Penalise input and input difference
             cost += cvxpy.quad_form(u[:, t], self.R)

@@ -1,5 +1,50 @@
 import numpy as np
 import bisect
+from path_planners.interface import PathPlannerInterface
+
+
+class CubicSplinePlanner(PathPlannerInterface):
+    def __init__(self, N, Ts):
+        self.N = N
+        self.Ts = Ts
+        self.dl = 1
+
+    @staticmethod
+    def calculate_middle_position(left_cone, right_cone):
+        midx = (left_cone[0] + right_cone[0]) / 2.0
+        midy = (left_cone[1] + right_cone[1]) / 2.0
+        return midx, midy
+
+    def plan(self, state):
+        """
+        Generate reference trajectory using the centre of the track and cubic spline interpolation
+
+        Args:
+            state (numpy.ndarray): 1D array containing inputs produced by SLAM
+
+        Returns:
+            numpy.ndarray: 2D matrix of size (2, N+1), which provides x and y reference from horizon 0 to N+1
+        """
+        # Unpack state
+        v = state[2]
+        left_cones = state[5]
+        right_cones = state[6]
+        # Get middle positions of the track
+        middle_x = [(left[0] + right[0]) / 2.0 for (left, right) in zip(left_cones, right_cones)]
+        middle_y = [(left[1] + right[1]) / 2.0 for (left, right) in zip(left_cones, right_cones)]
+
+        # Create a cubic spline
+        cone_splines = Spline2D(middle_x, middle_y)
+
+        # Perform cubic spline interpolation, using the car speed to estimate the next sampling time
+        position_ref = np.zeros((2, self.N + 1))
+        for i in range(self.N + 1):
+            t = (v / self.dl) * self.Ts * i
+            x, y = cone_splines.interpolate(t)
+            position_ref[0, i] = x
+            position_ref[1, i] = y
+
+        return position_ref
 
 
 class Spline:

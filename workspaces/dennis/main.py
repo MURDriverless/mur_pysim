@@ -3,6 +3,8 @@ Author: Dennis Wirya
 """
 
 from simulation.environment import Environment
+from path_planners.cubic_spline import CubicSplinePlanner
+from path_followers.ltv_mpc import LTVMPCFollower
 
 EPISODES = 1
 PRINT_STATE_EVERY = 100
@@ -10,8 +12,32 @@ RENDER_EPISODE_EVERY = 500
 
 
 def main():
-    pass
+    time = 0.0
+    dt = 0.2
+    env = Environment()
+    state = env.reset()
+    done = False
+
+    N = 10
+    Ts = dt
+
+    planner = CubicSplinePlanner(N, Ts)
+    follower = LTVMPCFollower(N, Ts)
+    action = [0, 0]
+
+    while not done:
+        reference = planner.plan(state)
+        oa, od = follower.move(state, reference)
+        action[0] = oa[0]
+        action[1] = od[0]
+        state, step_reward, done, _ = env.step(action)
+
+        env.render()
+
+    env.close()
+
     # env = Environment()
+
     #
     # # Both Path Planner and Follower have access of the environment, just to
     # # make it easier to access internal simulation states when needed
