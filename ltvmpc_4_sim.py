@@ -206,7 +206,7 @@ def ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length):
     Q = np.diag([1.0, 1.0, 0.5, 0.5])  # state cost matrix
     Qf = Q  # final state cost matrix
     R = np.diag([0.01, 0.01])  # input cost matrix
-    Rd = np.diag([0.01, 1.0])  # input difference cost matrix
+    Rd = np.diag([0.1, 1.0])  # input difference cost matrix
 
     x = cvxpy.Variable((NX, horizon_length + 1))
     u = cvxpy.Variable((NU, horizon_length))
@@ -223,6 +223,9 @@ def ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length):
         A, B, C = linearise_kinematic_bicycle_d(xbar[2, t], xbar[3, t], dref[0, t], Ts)
         constraints += [x[:, t+1] == A * x[:, t] + B * u[:, t] + C]
 
+        if x0[2] <= MIN_SPEED:
+            cost += -3*x[2, t]
+
         if t < (horizon_length - 1):
             cost += cvxpy.quad_form(u[:, t + 1] - u[:, t], Rd)
             # Saturate the changes in steering from previous state
@@ -234,8 +237,8 @@ def ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length):
     # Initial state must be the same as x0
     constraints += [x[:, 0] == x0]
     # Constrain speed
-    constraints += [x[2, :] <= MAX_SPEED]
-    constraints += [x[2, :] >= MIN_SPEED]
+    # constraints += [x[2, :] <= MAX_SPEED]
+    # constraints += [x[2, :] >= MIN_SPEED]
     # Constrain acceleration
     constraints += [u[0, :] <= MAX_ACCEL]
     constraints += [u[0, :] >= MIN_ACCEL]
@@ -262,6 +265,18 @@ def ltv_mpc_control(x0, xref, dref, xbar, Ts, horizon_length):
 # ----------------------------------------------------------
 # Simulation stuffs                                        |
 # ----------------------------------------------------------
+
+
+def get_forward_course(dl):
+    # ax = [0.0, 60.0, 125.0, 50.0, 75.0, 30.0, -10.0]
+    # ay = [0.0, 0.0, 50.0, 65.0, 30.0, 50.0, -20.0]
+    ax = [-1.486, 2.9695, 7.3821, 12.083, 16.665, 21.025, 25.887, 29.028, 32.733, 36.006, 39.015, 40.875, 42.322, 43.491, 44.177, 44.533, 44.577, 44.45, 44, 43.274, 42.098, 39.945, 37.047, 33.689, 29.856, 26.439, 23.726, 21.57, 18.285, 15.573, 13.514, 11.621, 9.7942, 7.1414, 4.5521, 1.2053, -2.1939, -3.997, -5.2132, -5.6311, -5.3418, -5.2135, -6.7958, -8.4471, -7.5401, -5.649, -3.3895, -1.1024, 1.9614, 5.048, 8.0587, 11.856, 15.302, 18.008, 21.098, 23.372, 25.513, 27.213, 28.152, 28.166, 27.472, 25.85, 22.443, 18.438, 14.126, 10.069, 6.3421, 2.6425, -0.48913, -3.3175, -5.1901, -7.2943, -9.3429, -11.736, -14.203, -16.187, -18, -20.388, -22.798, -23.767, -24.083, -24.155, -24.008, -23.342, -22.566, -21.519, -20.466, -19.139, -17.012, -14.772, -12.703, -10.559, -6.7006, -3.9528, -1.486]
+    ay = [-0.48196, -0.10848, -0.043252, 0.046523, 0.11177, 0.16406, 0.069632, -0.020348, -0.1523, -0.3096, -0.54204, -1.2926, -2.3187, -3.7316, -5.1781, -7.2801, -9.7264, -11.712, -13.947, -15.851, -17.988, -20.372, -22.277, -23.756, -24.945, -25.883, -26.383, -26.38, -25.484, -23.304, -21.285, -19.651, -18.245, -16.393, -15.505, -15.524, -16.221, -18.703, -22.052, -25.322, -28.661, -32.564, -36.035, -39.851, -43.338, -46.29, -49.012, -50.327, -50.885, -50.594, -50.51, -50.496, -50.42, -51.164, -53.532, -56.34, -59.629, -62.713, -65.849, -68.689, -70.707, -71.939, -72.328, -71.857, -70.725, -69.755, -68.825, -67.833, -66.552, -64.495, -62.517, -59.988, -57.84, -55.449, -52.67, -50.427, -48.24, -45.547, -42.298, -39.976, -36.975, -32.997, -29.225, -25.174, -21.331, -17.635, -14.006, -10.063, -7.641, -5.4829, -3.9936, -2.8395, -1.5938, -0.89756, -0.48196]
+
+    cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+        ax, ay, ds=dl)
+
+    return cx, cy, cyaw, ck
 
 
 def get_switch_back_course(dl):
@@ -505,6 +520,7 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
     yaw = [x0[3]]
     acceleration = [0.0]
     delta = [0.0]
+    xref_list = [np.zeros((4, 1))]
     target_ind, _ = calc_nearest_index(x0, cx, cy, cyaw, 0)
     oa = np.zeros(horizon_length)  # optimal acceleration
     od = np.zeros(horizon_length)  # optimal delta
@@ -542,12 +558,22 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
         yaw.append(xk[3])
         acceleration.append(ai)
         delta.append(di)
+        xref_list.append(xref[:, 0])
 
         if check_goal(xk, goal, target_ind, len(cx)):
             print("Goal")
             break
 
         if show_animation:  # pragma: no cover
+            # # Set up formatting for the movie files
+            # import matplotlib.animation as animation
+            # Writer = animation.writers['ffmpeg']
+            # writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+            #
+            # fig1 = plt.figure()
+            #
+            # def anime
+
             plt.cla()
             # for stopping simulation with the esc key.
             plt.gcf().canvas.mpl_connect('key_release_event',
@@ -562,10 +588,13 @@ def run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
             plt.axis("equal")
             plt.grid(True)
             plt.title("Time[s]:" + str(round(time, 2))
-                      + ", speed[km/h]:" + str(round(xk[2] * 3.6, 2)))
+                      + ", speed[m/s]:" + str(round(xk[2], 2)))
+            # with writer.saving(fig, "writer_test.mp4", 100):
+            #     writer.grab_frame()
+
             plt.pause(0.0001)
 
-    return t, x, y, yaw, v, delta, acceleration
+    return t, x, y, yaw, v, acceleration, delta, xref_list
 
 
 def main():
@@ -574,7 +603,7 @@ def main():
     dl = 1.0  # course tick
     TARGET_SPEED = 10.0 / 3.6  # [m/s] target speed
 
-    cx, cy, cyaw, ck = get_switch_back_course(dl)
+    cx, cy, cyaw, ck = get_forward_course(dl)
     sp = calc_speed_profile(cx, cy, cyaw, TARGET_SPEED)
 
     x0 = np.zeros(NX)
@@ -587,24 +616,113 @@ def main():
     horizon_length = 5
     show_animation = True
 
-    t, x, y, yaw, v, d, a = run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
+    t, x, y, yaw, v, a, d, ref = run_simulation(cx, cy, cyaw, sp, dl, x0, Ts, horizon_length, show_animation)
+
+    xref = [ref[i][0] for i in range(len(ref))]
+    yref = [ref[i][1] for i in range(len(ref))]
+    vref = [ref[i][2] for i in range(len(ref))]
+    yawref = [ref[i][3] for i in range(len(ref))]
 
     if show_animation:  # pragma: no cover
-        plt.close("all")
-        plt.subplots()
-        plt.plot(cx, cy, "-r", label="spline")
-        plt.plot(x, y, "-g", label="tracking")
-        plt.grid(True)
-        plt.axis("equal")
-        plt.xlabel("x[m]")
-        plt.ylabel("y[m]")
-        plt.legend()
+        # plt.close("all")
+        # plt.subplots()
+        # plt.plot(cx, cy, "-r", label="reference")
+        # plt.plot(x, y, "-b", label="output")
+        # plt.grid(True)
+        # plt.axis("equal")
+        # plt.xlabel("x [m]")
+        # plt.ylabel("y [m]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of x versus t")
+        # plt.plot(t, xref, "r-", label="reference")
+        # plt.plot(t, x, "b-", label="output")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("x [m]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of y versus t")
+        # plt.plot(t, yref, "r-", label="reference")
+        # plt.plot(t, y, "b-", label="output")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("y [m]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of v versus t")
+        # plt.plot(t, vref, "r-", label="reference")
+        # plt.plot(t, v, "b-", label="output")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("v [m/s]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of yaw versus t")
+        # plt.plot(t, yawref, "r-", label="reference")
+        # plt.plot(t, yaw, "b-", label="output")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("yaw [rads]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of acceleration versus t")
+        # plt.plot(t, MAX_ACCEL * np.ones(len(t)), "r-", label="upper bound")
+        # plt.plot(t, a, "b-", label="output")
+        # plt.plot(t, MIN_ACCEL * np.ones(len(t)), "k-", label="lower bound")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("a [m/s^2]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of delta versus t")
+        # plt.plot(t, MAX_STEER * np.ones(len(t)), "r-", label="upper bound")
+        # plt.plot(t, d, "b-", label="output")
+        # plt.plot(t, -MAX_STEER * np.ones(len(t)), "k-", label="lower bound")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("d [rads/s^2]")
+        # plt.legend()
+        #
+        # plt.subplots()
+        # plt.title("Plot of x_error versus t")
+        # plt.plot(t, np.subtract(xref, x), "b-")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("x error [m]")
+        #
+        # plt.subplots()
+        # plt.title("Plot of y_error versus t")
+        # plt.plot(t, np.subtract(yref, y), "b-")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("y error [m]")
+        #
+        # plt.subplots()
+        # plt.title("Plot of v_error versus t")
+        # plt.plot(t, np.subtract(vref, v), "b-")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("v error [m/s]")
+        #
+        # plt.subplots()
+        # plt.title("Plot of yaw_error versus t")
+        # plt.plot(t, np.subtract(yawref, yaw), "b-")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("yaw error [rads]")
 
-        plt.subplots()
-        plt.plot(t, v, "-r", label="speed")
-        plt.grid(True)
-        plt.xlabel("Time [s]")
-        plt.ylabel("Speed [kmh]")
+        # plt.subplots()
+        # plt.plot(t, v, "-r", label="speed")
+        # plt.grid(True)
+        # plt.xlabel("t [s]")
+        # plt.ylabel("Speed [kmh]")
 
         plt.show()
 
